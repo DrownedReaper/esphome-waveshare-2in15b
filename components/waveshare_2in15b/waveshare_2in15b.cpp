@@ -173,6 +173,10 @@ void Waveshare2in15B::fill(Color color) {
   memset(buffer_red_, 0xFF, sizeof(buffer_red_));
 }
 
+display::DisplayType Waveshare2in15B::get_display_type() {
+  return display::DisplayType::DISPLAY_TYPE_BINARY;
+}
+
 void Waveshare2in15B::draw_absolute_pixel_internal(int x, int y, Color color) {
   if (x < 0 || y < 0 || x >= 296 || y >= 160)
     return;

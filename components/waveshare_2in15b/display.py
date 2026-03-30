@@ -8,6 +8,7 @@ from esphome.const import CONF_ID
 CONF_DC_PIN = "dc_pin"
 CONF_RESET_PIN = "reset_pin"
 CONF_BUSY_PIN = "busy_pin"
+CONF_POWER_PIN = "power_pin"
 
 waveshare_ns = cg.esphome_ns.namespace("waveshare")
 Waveshare2in15B = waveshare_ns.class_(
@@ -22,25 +23,31 @@ CONFIG_SCHEMA = display.FULL_DISPLAY_SCHEMA.extend(
         cv.Optional(CONF_DC_PIN): pins.gpio_output_pin_schema,
         cv.Optional(CONF_RESET_PIN): pins.gpio_output_pin_schema,
         cv.Optional(CONF_BUSY_PIN): pins.gpio_input_pin_schema,
+        cv.Optional(CONF_POWER_PIN): pins.gpio_output_pin_schema,
     }
 ).extend(
     spi.spi_device_schema()
 )
 
-async def to_code(config):
-    var = cg.new_Pvariable(config[CONF_ID])
+
+async def to_code(config):async def to_code(config var = cg.new_Pvariable(config[CONF_ID])
 
     await display.register_display(var, config)
     await spi.register_spi_device(var, config)
 
     if CONF_DC_PIN in config:
-        pin = await cg.gpio_pin_expression(config[CONF_DC_PIN])
-        cg.add(var.set_dc_pin(pin))
+        dc = await pins.gpio_output_pin_expression(config[CONF_DC_PIN])
+        cg.add(var.set_dc_pin(dc))
 
     if CONF_RESET_PIN in config:
-        pin = await cg.gpio_pin_expression(config[CONF_RESET_PIN])
-        cg.add(var.set_reset_pin(pin))
+        rst = await pins.gpio_output_pin_expression(config[CONF_RESET_PIN])
+        cg.add(var.set_reset_pin(rst))
 
     if CONF_BUSY_PIN in config:
-        pin = await cg.gpio_pin_expression(config[CONF_BUSY_PIN])
-        cg.add(var.set_busy_pin(pin))
+        busy = await pins.gpio_input_pin_expression(config[CONF_BUSY_PIN])
+        cg.add(var.set_busy_pin(busy))
+
+    if CONF_POWER_PIN in config:
+        pwr = await pins.gpio_output_pin_expression(config[CONF_POWER_PIN])
+        cg.add(var.set_power_pin(pwr))
+

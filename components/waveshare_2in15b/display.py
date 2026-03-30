@@ -1,5 +1,8 @@
 import esphome.codegen as cg
-import esphome.config_validation as pinsimport esphome.config_validation as cv
+import esphome.config_validation as cv
+
+from esphome.components import display, spi
+from esphome import pins
 from esphome.const import CONF_ID
 
 CONF_DC_PIN = "dc_pin"
@@ -41,5 +44,3 @@ async def to_code(config):
     if CONF_BUSY_PIN in config:
         pin = await pins.gpio_input_pin_expression(config[CONF_BUSY_PIN])
         cg.add(var.set_busy_pin(pin))
-
-from esphome.components import display, spi

@@ -12,8 +12,8 @@ static const uint8_t CMD_PANEL_SETTING             = 0x00;
 static const uint8_t CMD_POWER_SETTING             = 0x01;
 static const uint8_t CMD_POWER_ON                  = 0x04;
 static const uint8_t CMD_BOOSTER_SOFT_START         = 0x06;
-static const uint8_t CMD_DATA_START_TRANSMISSION_1 = 0x10; // Black
-static const uint8_t CMD_DATA_START_TRANSMISSION_2 = 0x13; // Red
+static const uint8_t CMD_DATA_START_TRANSMISSION_1 = 0x10; // black
+static const uint8_t CMD_DATA_START_TRANSMISSION_2 = 0x13; // red
 static const uint8_t CMD_DISPLAY_REFRESH           = 0x12;
 static const uint8_t CMD_PLL_CONTROL               = 0x30;
 static const uint8_t CMD_RESOLUTION_SETTING        = 0x61;
@@ -21,7 +21,7 @@ static const uint8_t CMD_VCOM_AND_DATA_INTERVAL    = 0x50;
 static const uint8_t CMD_VCM_DC_SETTING             = 0x82;
 
 // =====================
-// LUTs (2.15" B Panel)
+// LUTs (2.15" B panel)
 // =====================
 static const uint8_t LUT_VCOM[] = {
   0x0E,0x14,0x01,0x0A,0x06,0x04,0x0A,0x0A,
@@ -48,14 +48,12 @@ static const uint8_t LUT_BW[] = {
 // Low‑level helpers
 // =====================
 void Waveshare2in15B::send_command(uint8_t cmd) {
-  if (dc_pin_)
-    dc_pin_->digital_write(false);
+  if (dc_pin_) dc_pin_->digital_write(false);
   this->write_byte(cmd);
 }
 
 void Waveshare2in15B::send_data(uint8_t data) {
-  if (dc_pin_)
-    dc_pin_->digital_write(true);
+  if (dc_pin_) dc_pin_->digital_write(true);
   this->write_byte(data);
 }
 
@@ -65,7 +63,7 @@ void Waveshare2in15B::wait_until_idle_() {
 
   ESP_LOGV(TAG, "Waiting for BUSY...");
   while (busy_pin_->digital_read()) {
-    yield();        // ✅ feed watchdog
+    yield();        // feed task WDT
     delay(10);
   }
 }
@@ -82,6 +80,15 @@ void Waveshare2in15B::load_lut_() {
 // ESPHome lifecycle
 // =====================
 void Waveshare2in15B::setup() {
+  ESP_LOGI(TAG, "Scheduling Waveshare display init");
+
+  // Defer heavy initialization so task WDT never fires in setup()
+  this->set_timeout(100, this {
+    this->init_display_();
+  });
+}
+
+void Waveshare2in15B::init_display_() {
   ESP_LOGI(TAG, "Initializing Waveshare 2.15\" B e-paper");
 
   this->spi_setup();
@@ -102,13 +109,14 @@ void Waveshare2in15B::setup() {
     reset_pin_->digital_write(false);
     delay(200);
     yield();
-    
     reset_pin_->digital_write(true);
     delay(200);
+    yield();
   }
 
   send_command(CMD_POWER_ON);
   delay(300);
+  yield();
 
   memset(buffer_black_, 0xFF, sizeof(buffer_black_));
   memset(buffer_red_,   0xFF, sizeof(buffer_red_));
@@ -146,12 +154,13 @@ void Waveshare2in15B::setup() {
 
   load_lut_();
   yield();
-  
+
   ESP_LOGI(TAG, "Display initialized");
 }
 
 void Waveshare2in15B::update() {
   ESP_LOGD(TAG, "Updating display");
+
   this->do_update_();
 
   // -------- Black layer --------
@@ -162,7 +171,7 @@ void Waveshare2in15B::update() {
 
   for (size_t i = 0; i < sizeof(buffer_black_); i++) {
     this->write_byte(buffer_black_[i]);
-    if ((i % 64) == 0) yield();  // ✅ feed watchdog
+    if ((i % 64) == 0) yield();
   }
   this->disable();
   yield();
@@ -175,7 +184,7 @@ void Waveshare2in15B::update() {
 
   for (size_t i = 0; i < sizeof(buffer_red_); i++) {
     this->write_byte(buffer_red_[i]);
-    if ((i % 64) == 0) yield();  // ✅ feed watchdog
+    if ((i % 64) == 0) yield();
   }
   this->disable();
   yield();
@@ -208,7 +217,7 @@ void Waveshare2in15B::draw_absolute_pixel_internal(int x, int y, Color color) {
 }
 
 display::DisplayType Waveshare2in15B::get_display_type() {
-  return display::DisplayType::DISPLAY_TYPE_BINARY;
+  return display::DISPLAY_TYPE_BINARY;
 }
 
 }  // namespace waveshare

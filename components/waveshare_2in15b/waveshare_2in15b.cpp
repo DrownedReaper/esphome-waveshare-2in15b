@@ -75,8 +75,8 @@ void Waveshare2in15B::wait_until_idle_() {
     return;
 
   ESP_LOGV(TAG, "Waiting for BUSY...");
-  while (busy_pin_->digital_read()) {
-    delay(10);
+  while (!busy_pin_->digital_read()) {
+    delay(5);
   }
 }
 

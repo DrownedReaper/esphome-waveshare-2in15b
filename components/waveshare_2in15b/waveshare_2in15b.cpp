@@ -94,8 +94,6 @@ void Waveshare2in15B::load_lut_() {
 void Waveshare2in15B::setup() {
   ESP_LOGI(TAG, "Setting up Waveshare 2.15\" B e-paper");
 
-  this->spi_setup();
-
   if (dc_pin_)     dc_pin_->setup();
   if (reset_pin_)  reset_pin_->setup();
   if (busy_pin_)   busy_pin_->setup();

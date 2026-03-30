@@ -1,9 +1,8 @@
 import esphome.codegen as cg
 import esphome.config_validation as cv
 
-from esphome.components import display, spi
+from esphome.components import display, spi, gpio
 from esphome.const import CONF_ID
-from esphome.components import gpio
 
 CONF_DC_PIN = "dc_pin"
 CONF_RESET_PIN = "reset_pin"
@@ -16,15 +15,16 @@ Waveshare2in15B = waveshare_ns.class_(
     spi.SPIDevice,
 )
 
-
 CONFIG_SCHEMA = display.FULL_DISPLAY_SCHEMA.extend(
     {
         cv.GenerateID(): cv.declare_id(Waveshare2in15B),
-        cv.Optional(CONF_DC_PIN): gpio.gpio_output_pin_schema,
-        cv.Optional(CONF_RESET_PIN): gpio.gpio_output_pin_schema,
-        cv.Optional(CONF_BUSY_PIN): gpio.gpio_input_pin_schema,
+        cv.Optional(CONF_DC_PIN): gpio.GPIO_OUTPUT_PIN_SCHEMA,
+        cv.Optional(CONF_RESET_PIN): gpio.GPIO_OUTPUT_PIN_SCHEMA,
+        cv.Optional(CONF_BUSY_PIN): gpio.GPIO_INPUT_PIN_SCHEMA,
     }
-).extend(spi.spi_device_schema())
+).extend(
+    spi.spi_device_schema()
+)
 
 async def to_code(config):
     var = cg.new_Pvariable(config[CONF_ID])

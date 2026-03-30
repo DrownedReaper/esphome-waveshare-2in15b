@@ -9,12 +9,12 @@ namespace esphome {
 namespace waveshare {
 
 class Waveshare2in15B
-    : public display::DisplayBuffer,
-      public spi::SPIDevice<
-          spi::SPIBitOrder::MSB_FIRST,
-          spi::SPIClockPolarity::LOW,
-          spi::SPIClockPhase::LEADING,
-          spi::SPIDataRate::DATA_RATE_4MHZ> {
+  : public display::DisplayBuffer,
+    public spi::SPIDevice<
+        spi::SPIBitOrder::BIT_ORDER_MSB_FIRST,
+        spi::SPIClockPolarity::CLOCK_POLARITY_LOW,
+        spi::SPIClockPhase::CLOCK_PHASE_LEADING,
+        spi::SPIDataRate::DATA_RATE_4MHZ> {
 
  public:
   void setup() override;

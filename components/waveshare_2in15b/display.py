@@ -1,7 +1,5 @@
 import esphome.codegen as cg
-import esphome.config_validation as cv
-
-from esphome.components import display, spi, gpio
+import esphome.config_validation as pinsimport esphome.config_validation as cv
 from esphome.const import CONF_ID
 
 CONF_DC_PIN = "dc_pin"
@@ -18,11 +16,13 @@ Waveshare2in15B = waveshare_ns.class_(
 CONFIG_SCHEMA = display.FULL_DISPLAY_SCHEMA.extend(
     {
         cv.GenerateID(): cv.declare_id(Waveshare2in15B),
-        cv.Optional(CONF_DC_PIN): cv.use_id(gpio.Pin),
-        cv.Optional(CONF_RESET_PIN): cv.use_id(gpio.Pin),
-        cv.Optional(CONF_BUSY_PIN): cv.use_id(gpio.Pin),
+        cv.Optional(CONF_DC_PIN): pins.gpio_output_pin_schema,
+        cv.Optional(CONF_RESET_PIN): pins.gpio_output_pin_schema,
+        cv.Optional(CONF_BUSY_PIN): pins.gpio_input_pin_schema,
     }
-).extend(spi.spi_device_schema())
+).extend(
+    spi.spi_device_schema()
+)
 
 async def to_code(config):
     var = cg.new_Pvariable(config[CONF_ID])
@@ -31,13 +31,15 @@ async def to_code(config):
     await spi.register_spi_device(var, config)
 
     if CONF_DC_PIN in config:
-        pin = await cg.get_variable(config[CONF_DC_PIN])
+        pin = await pins.gpio_output_pin_expression(config[CONF_DC_PIN])
         cg.add(var.set_dc_pin(pin))
 
     if CONF_RESET_PIN in config:
-        pin = await cg.get_variable(config[CONF_RESET_PIN])
+        pin = await pins.gpio_output_pin_expression(config[CONF_RESET_PIN])
         cg.add(var.set_reset_pin(pin))
 
     if CONF_BUSY_PIN in config:
-        pin = await cg.get_variable(config[CONF_BUSY_PIN])
+        pin = await pins.gpio_input_pin_expression(config[CONF_BUSY_PIN])
         cg.add(var.set_busy_pin(pin))
+
+from esphome.components import display, spi

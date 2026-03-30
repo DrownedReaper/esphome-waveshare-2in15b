@@ -56,14 +56,14 @@ void Waveshare2in15B::send_command(uint8_t cmd) {
   if (dc_pin_ != nullptr)
     dc_pin_->digital_write(false);  // COMMAND
 
-  this->write_array(&cmd, 1);
+  this->write(cmd);
 }
 
 void Waveshare2in15B::send_data(uint8_t data) {
   if (dc_pin_ != nullptr)
     dc_pin_->digital_write(true);   // DATA
 
-  this->write_array(&data, 1);
+  this->write(data);
 }
 
 void Waveshare2in15B::wait_until_idle_() {

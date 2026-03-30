@@ -34,13 +34,13 @@ async def to_code(config):
     await spi.register_spi_device(var, config)
 
     if CONF_DC_PIN in config:
-        pin = await pins.gpio_output_pin_expression(config[CONF_DC_PIN])
+        pin = await pins.gpio_pin_expression(config[CONF_DC_PIN])
         cg.add(var.set_dc_pin(pin))
 
     if CONF_RESET_PIN in config:
-        pin = await pins.gpio_output_pin_expression(config[CONF_RESET_PIN])
+        pin = await pins.gpio_pin_expression(config[CONF_RESET_PIN])
         cg.add(var.set_reset_pin(pin))
 
     if CONF_BUSY_PIN in config:
-        pin = await pins.gpio_input_pin_expression(config[CONF_BUSY_PIN])
+        pin = await pins.gpio_pin_expression(config[CONF_BUSY_PIN])
         cg.add(var.set_busy_pin(pin))

@@ -21,6 +21,8 @@ class Waveshare2in15B
   void update() override;
   void fill(Color color) override;
 
+  display::DisplayType get_display_type() override;
+
   void set_dc_pin(GPIOPin *pin) { dc_pin_ = pin; }
   void set_reset_pin(GPIOPin *pin) { reset_pin_ = pin; }
   void set_busy_pin(GPIOPin *pin) { busy_pin_ = pin; }

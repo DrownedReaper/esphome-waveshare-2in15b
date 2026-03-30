@@ -41,4 +41,3 @@ async def to_code(config):
     if CONF_BUSY_PIN in config:
         pin = await cg.get_variable(config[CONF_BUSY_PIN])
         cg.add(var.set_busy_pin(pin))
-``

@@ -9,17 +9,17 @@ namespace esphome {
 namespace waveshare {
 
 class Waveshare2in15B
-  : public display::DisplayBuffer,
-    public spi::SPIDevice {
+    : public display::DisplayBuffer,
+      public spi::SPIDevice<Waveshare2in15B> {
 
  public:
   void setup() override;
   void update() override;
   void fill(Color color) override;
+
   void set_dc_pin(GPIOPin *pin) { dc_pin_ = pin; }
   void set_reset_pin(GPIOPin *pin) { reset_pin_ = pin; }
   void set_busy_pin(GPIOPin *pin) { busy_pin_ = pin; }
-
 
  protected:
   void draw_absolute_pixel_internal(int x, int y, Color color) override;
@@ -27,17 +27,18 @@ class Waveshare2in15B
   int get_width_internal() override { return 296; }
   int get_height_internal() override { return 160; }
 
+  // Helper methods (MUST be declared)
+  void wait_until_idle_();
+  void load_lut_();
+
+  // GPIOs
   GPIOPin *dc_pin_{nullptr};
   GPIOPin *reset_pin_{nullptr};
   GPIOPin *busy_pin_{nullptr};
 
-
- private:
+  // Framebuffers
   uint8_t buffer_black_[296 * 160 / 8];
   uint8_t buffer_red_[296 * 160 / 8];
-
-  void send_command(uint8_t cmd);
-  void send_data(uint8_t data);
 };
 
 }  // namespace waveshare

@@ -85,11 +85,13 @@ void Waveshare2in15B::setup() {
   ESP_LOGI(TAG, "Initializing Waveshare 2.15\" B e-paper");
 
   this->spi_setup();
+  yield();
 
   if (power_pin_) {
     power_pin_->setup();
     power_pin_->digital_write(true);
     delay(10);
+    yield();
   }
 
   if (dc_pin_)    dc_pin_->setup();
@@ -99,6 +101,8 @@ void Waveshare2in15B::setup() {
   if (reset_pin_) {
     reset_pin_->digital_write(false);
     delay(200);
+    yield();
+    
     reset_pin_->digital_write(true);
     delay(200);
   }
@@ -112,9 +116,11 @@ void Waveshare2in15B::setup() {
   send_command(CMD_POWER_SETTING);
   send_data(0x03); send_data(0x00);
   send_data(0x2B); send_data(0x2B);
+  yield();
 
   send_command(CMD_BOOSTER_SOFT_START);
   send_data(0x17); send_data(0x17); send_data(0x17);
+  yield();
 
   send_command(CMD_POWER_ON);
   delay(300);
@@ -139,6 +145,8 @@ void Waveshare2in15B::setup() {
   send_data(0x0A);
 
   load_lut_();
+  yield();
+  
   ESP_LOGI(TAG, "Display initialized");
 }
 

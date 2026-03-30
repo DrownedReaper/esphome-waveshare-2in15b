@@ -26,6 +26,8 @@ class Waveshare2in15B
   void set_dc_pin(GPIOPin *pin) { dc_pin_ = pin; }
   void set_reset_pin(GPIOPin *pin) { reset_pin_ = pin; }
   void set_busy_pin(GPIOPin *pin) { busy_pin_ = pin; }
+  void set_power_pin(GPIOPin *pin) { power_pin_ = pin; }
+
 
  protected:
   void draw_absolute_pixel_internal(int x, int y, Color color) override;
@@ -43,6 +45,7 @@ class Waveshare2in15B
   GPIOPin *dc_pin_{nullptr};
   GPIOPin *reset_pin_{nullptr};
   GPIOPin *busy_pin_{nullptr};
+  GPIOPin *power_pin_{nullptr};
 
   // Framebuffers
   uint8_t buffer_black_[296 * 160 / 8];

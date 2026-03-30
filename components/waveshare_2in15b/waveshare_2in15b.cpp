@@ -83,9 +83,10 @@ void Waveshare2in15B::setup() {
   ESP_LOGI(TAG, "Scheduling Waveshare display init");
 
   // Defer heavy initialization so task WDT never fires in setup()
-  this->set_timeout(100, this {
-    this->init_display_();
-  });
+  
+this->set_timeout(100, this {
+  this->init_display_();
+});
 }
 
 void Waveshare2in15B::init_display_() {

@@ -18,13 +18,11 @@ Waveshare2in15B = waveshare_ns.class_(
 CONFIG_SCHEMA = display.FULL_DISPLAY_SCHEMA.extend(
     {
         cv.GenerateID(): cv.declare_id(Waveshare2in15B),
-        cv.Optional(CONF_DC_PIN): gpio.GPIO_OUTPUT_PIN_SCHEMA,
-        cv.Optional(CONF_RESET_PIN): gpio.GPIO_OUTPUT_PIN_SCHEMA,
-        cv.Optional(CONF_BUSY_PIN): gpio.GPIO_INPUT_PIN_SCHEMA,
+        cv.Optional(CONF_DC_PIN): cv.use_id(gpio.Pin),
+        cv.Optional(CONF_RESET_PIN): cv.use_id(gpio.Pin),
+        cv.Optional(CONF_BUSY_PIN): cv.use_id(gpio.Pin),
     }
-).extend(
-    spi.spi_device_schema()
-)
+).extend(spi.spi_device_schema())
 
 async def to_code(config):
     var = cg.new_Pvariable(config[CONF_ID])
@@ -33,13 +31,14 @@ async def to_code(config):
     await spi.register_spi_device(var, config)
 
     if CONF_DC_PIN in config:
-        dc = await gpio.gpio_output_pin_expression(config[CONF_DC_PIN])
-        cg.add(var.set_dc_pin(dc))
+        pin = await cg.get_variable(config[CONF_DC_PIN])
+        cg.add(var.set_dc_pin(pin))
 
     if CONF_RESET_PIN in config:
-        rst = await gpio.gpio_output_pin_expression(config[CONF_RESET_PIN])
-        cg.add(var.set_reset_pin(rst))
+        pin = await cg.get_variable(config[CONF_RESET_PIN])
+        cg.add(var.set_reset_pin(pin))
 
     if CONF_BUSY_PIN in config:
-        busy = await gpio.gpio_input_pin_expression(config[CONF_BUSY_PIN])
-        cg.add(var.set_busy_pin(busy))
+        pin = await cg.get_variable(config[CONF_BUSY_PIN])
+        cg.add(var.set_busy_pin(pin))
+``

@@ -31,7 +31,7 @@ class Waveshare2in15B
   int get_width_internal() override { return 296; }
   int get_height_internal() override { return 160; }
 
-  // ✅ MUST be declared
+  // --- internal helpers (must be declared here) ---
   void send_command(uint8_t cmd);
   void send_data(uint8_t data);
   void wait_until_idle_();
@@ -42,7 +42,7 @@ class Waveshare2in15B
   GPIOPin *reset_pin_{nullptr};
   GPIOPin *busy_pin_{nullptr};
 
-  // Buffers
+  // Framebuffers
   uint8_t buffer_black_[296 * 160 / 8];
   uint8_t buffer_red_[296 * 160 / 8];
 };

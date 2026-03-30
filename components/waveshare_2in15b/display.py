@@ -11,7 +11,7 @@ Waveshare2in15B = waveshare_ns.class_(
     spi.SPIDevice,
 )
 
-CONFIG_SCHEMA = display.DISPLAY_SCHEMA.extend(
+CONFIG_SCHEMA = display.FULL_DISPLAY_SCHEMA.extend(
     spi.spi_device_schema()
 ).extend(
     {cv.GenerateID(): cv.declare_id(Waveshare2in15B)}

@@ -13,13 +13,14 @@ CONF_POWER_PIN = "power_pin"
 waveshare_ns = cg.esphome_ns.namespace("waveshare")
 Waveshare2in15B = waveshare_ns.class_(
     "Waveshare2in15B",
+    cg.Component,
     display.DisplayBuffer,
-    spi.SPIDevice,
 )
 
 CONFIG_SCHEMA = display.FULL_DISPLAY_SCHEMA.extend(
     {
         cv.GenerateID(): cv.declare_id(Waveshare2in15B),
+
         cv.Optional(CONF_DC_PIN): pins.gpio_output_pin_schema,
         cv.Optional(CONF_RESET_PIN): pins.gpio_output_pin_schema,
         cv.Optional(CONF_BUSY_PIN): pins.gpio_input_pin_schema,
@@ -29,8 +30,8 @@ CONFIG_SCHEMA = display.FULL_DISPLAY_SCHEMA.extend(
     spi.spi_device_schema()
 )
 
-
-async def to_code(config):async def to_code(config var = cg.new_Pvariable(config[CONF_ID])
+async def to_code(config):
+    var = cg.new_Pvariable(config[CONF_ID])
 
     await display.register_display(var, config)
     await spi.register_spi_device(var, config)
@@ -50,4 +51,3 @@ async def to_code(config):async def to_code(config var = cg.new_Pvariable(config
     if CONF_POWER_PIN in config:
         pwr = await pins.gpio_output_pin_expression(config[CONF_POWER_PIN])
         cg.add(var.set_power_pin(pwr))
-

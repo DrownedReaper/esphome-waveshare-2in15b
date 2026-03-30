@@ -30,10 +30,12 @@ class Waveshare2in15B
 
 
  protected:
-  void draw_absolute_pixel_internal(int x, int y, Color color) override;
+  void init_display_();
 
   int get_width_internal() override { return 296; }
   int get_height_internal() override { return 160; }
+
+  void draw_absolute_pixel_internal(int x, int y, Color color) override;
 
   // --- internal helpers (must be declared here) ---
   void send_command(uint8_t cmd);

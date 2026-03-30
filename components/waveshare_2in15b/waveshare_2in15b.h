@@ -2,7 +2,7 @@
 
 #include "esphome/components/display/display_buffer.h"
 #include "esphome/components/spi/spi.h"
-#include "esphome/components/gpio/gpio.h"
+#include "esphome/components/gpio/gpio_pin.h"
 #include "esphome/core/log.h"
 
 namespace esphome {

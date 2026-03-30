@@ -91,6 +91,12 @@ void Waveshare2in15B::setup() {
   // REQUIRED for SPIDevice
   this->spi_setup();
 
+  if (power_pin_) {
+    power_pin_->setup();
+    power_pin_->digital_write(true);  // ✅ ENABLE PANEL POWER
+    delay(10);
+  }
+
   if (dc_pin_)    dc_pin_->setup();
   if (reset_pin_) reset_pin_->setup();
   if (busy_pin_)  busy_pin_->setup();

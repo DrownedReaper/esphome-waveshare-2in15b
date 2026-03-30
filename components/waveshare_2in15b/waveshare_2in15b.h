@@ -10,7 +10,7 @@ namespace waveshare {
 
 class Waveshare2in15B
     : public display::DisplayBuffer,
-      public spi::SPIDevice<Waveshare2in15B> {
+      public spi::SPIClient {
 
  public:
   void setup() override;
@@ -27,7 +27,9 @@ class Waveshare2in15B
   int get_width_internal() override { return 296; }
   int get_height_internal() override { return 160; }
 
-  // Helper methods (MUST be declared)
+  // ✅ MUST be declared
+  void send_command(uint8_t cmd);
+  void send_data(uint8_t data);
   void wait_until_idle_();
   void load_lut_();
 
@@ -36,7 +38,7 @@ class Waveshare2in15B
   GPIOPin *reset_pin_{nullptr};
   GPIOPin *busy_pin_{nullptr};
 
-  // Framebuffers
+  // Buffers
   uint8_t buffer_black_[296 * 160 / 8];
   uint8_t buffer_red_[296 * 160 / 8];
 };

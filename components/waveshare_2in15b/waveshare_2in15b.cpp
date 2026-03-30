@@ -22,7 +22,7 @@ static const uint8_t CMD_VCOM_AND_DATA_INTERVAL        = 0x50;
 static const uint8_t CMD_VCM_DC_SETTING                = 0x82;
 
 // =============================
-// LUT tables – full refresh
+// LUT tables (full refresh)
 // =============================
 static const uint8_t LUT_VCOM[] = {
   0x0E,0x14,0x01,0x0A,0x06,0x04,0x0A,0x0A,
@@ -50,31 +50,27 @@ static const uint8_t LUT_BW[] = {
 };
 
 // =============================
-// Low‑level helpers
+// Low‑level helpers (SPIClient)
 // =============================
 void Waveshare2in15B::send_command(uint8_t cmd) {
   if (dc_pin_ != nullptr)
-    dc_pin_->digital_write(false);  // command mode
+    dc_pin_->digital_write(false);  // COMMAND
 
-  this->enable();
-  this->write_byte(cmd);
-  this->disable();
+  this->write_array(&cmd, 1);
 }
 
 void Waveshare2in15B::send_data(uint8_t data) {
   if (dc_pin_ != nullptr)
-    dc_pin_->digital_write(true);   // data mode
+    dc_pin_->digital_write(true);   // DATA
 
-  this->enable();
-  this->write_byte(data);
-  this->disable();
+  this->write_array(&data, 1);
 }
 
 void Waveshare2in15B::wait_until_idle_() {
   if (busy_pin_ == nullptr)
     return;
 
-  ESP_LOGV(TAG, "Waiting for display idle...");
+  ESP_LOGV(TAG, "Waiting for busy pin...");
   while (busy_pin_->digital_read()) {
     delay(10);
   }
@@ -92,13 +88,13 @@ void Waveshare2in15B::load_lut_() {
 // ESPHome lifecycle
 // =============================
 void Waveshare2in15B::setup() {
-  ESP_LOGI(TAG, "Setting up Waveshare 2.15\" B e-paper");
+  ESP_LOGI(TAG, "Initializing Waveshare 2.15\" B e-paper");
 
   if (dc_pin_)     dc_pin_->setup();
   if (reset_pin_)  reset_pin_->setup();
   if (busy_pin_)   busy_pin_->setup();
 
-  // Hardware reset (recommended)
+  // Hardware reset
   if (reset_pin_ != nullptr) {
     reset_pin_->digital_write(false);
     delay(10);
@@ -130,9 +126,9 @@ void Waveshare2in15B::setup() {
   send_data(0x3A);
 
   send_command(CMD_RESOLUTION_SETTING);
-  send_data(0x01); // 296 width high byte
-  send_data(0x28); // 296 width low byte
-  send_data(0xA0); // 160 height
+  send_data(0x01); // width high byte (296)
+  send_data(0x28); // width low byte
+  send_data(0xA0); // height (160)
 
   send_command(CMD_VCOM_AND_DATA_INTERVAL);
   send_data(0x77);
@@ -146,18 +142,18 @@ void Waveshare2in15B::setup() {
 }
 
 void Waveshare2in15B::update() {
-  ESP_LOGD(TAG, "Updating e-paper display");
+  ESP_LOGD(TAG, "Refreshing e-paper display");
 
-  // Let ESPHome draw into buffers
+  // Let ESPHome render into framebuffers
   this->do_update_();
 
-  // Black layer
+  // Black plane
   send_command(CMD_DATA_START_TRANSMISSION_1);
   delay(2);
   for (size_t i = 0; i < sizeof(buffer_black_); i++)
     send_data(buffer_black_[i]);
 
-  // Red layer
+  // Red plane
   send_command(CMD_DATA_START_TRANSMISSION_2);
   delay(2);
   for (size_t i = 0; i < sizeof(buffer_red_); i++)
@@ -166,12 +162,12 @@ void Waveshare2in15B::update() {
   send_command(CMD_DISPLAY_REFRESH);
   wait_until_idle_();
 
-  ESP_LOGI(TAG, "Display refresh complete");
+  ESP_LOGI(TAG, "Display update complete");
 }
 
 void Waveshare2in15B::fill(Color color) {
-  uint8_t fill = color.is_on() ? 0x00 : 0xFF;
-  memset(buffer_black_, fill, sizeof(buffer_black_));
+  uint8_t v = color.is_on() ? 0x00 : 0xFF;
+  memset(buffer_black_, v, sizeof(buffer_black_));
   memset(buffer_red_, 0xFF, sizeof(buffer_red_));
 }
 

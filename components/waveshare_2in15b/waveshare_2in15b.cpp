@@ -5,9 +5,9 @@ namespace waveshare {
 
 static const char *const TAG = "waveshare_2in15b";
 
-// =======================
-// Command definitions
-// =======================
+// =============================
+// Waveshare command definitions
+// =============================
 static const uint8_t CMD_PANEL_SETTING                 = 0x00;
 static const uint8_t CMD_POWER_SETTING                 = 0x01;
 static const uint8_t CMD_POWER_ON                      = 0x04;
@@ -21,9 +21,9 @@ static const uint8_t CMD_RESOLUTION_SETTING            = 0x61;
 static const uint8_t CMD_VCOM_AND_DATA_INTERVAL        = 0x50;
 static const uint8_t CMD_VCM_DC_SETTING                = 0x82;
 
-// =======================
-// LUT tables (full refresh)
-// =======================
+// =============================
+// LUT tables – full refresh
+// =============================
 static const uint8_t LUT_VCOM[] = {
   0x0E,0x14,0x01,0x0A,0x06,0x04,0x0A,0x0A,
   0x0F,0x03,0x03,0x0C,0x06,0x0A,0x0A,0x04
@@ -49,19 +49,35 @@ static const uint8_t LUT_BW[] = {
   0x0F,0x83,0x43,0x0C,0x06,0x0A,0x0A,0x04
 };
 
-// =======================
-// Low-level helpers
-// =======================
+// =============================
+// Low‑level helpers
+// =============================
 void Waveshare2in15B::send_command(uint8_t cmd) {
+  if (dc_pin_ != nullptr)
+    dc_pin_->digital_write(false);  // command mode
+
   this->enable();
   this->write_byte(cmd);
   this->disable();
 }
 
 void Waveshare2in15B::send_data(uint8_t data) {
+  if (dc_pin_ != nullptr)
+    dc_pin_->digital_write(true);   // data mode
+
   this->enable();
   this->write_byte(data);
   this->disable();
+}
+
+void Waveshare2in15B::wait_until_idle_() {
+  if (busy_pin_ == nullptr)
+    return;
+
+  ESP_LOGV(TAG, "Waiting for display idle...");
+  while (busy_pin_->digital_read()) {
+    delay(10);
+  }
 }
 
 void Waveshare2in15B::load_lut_() {
@@ -72,13 +88,25 @@ void Waveshare2in15B::load_lut_() {
   send_command(0x24); for (uint8_t v : LUT_BW)   send_data(v);
 }
 
-// =======================
+// =============================
 // ESPHome lifecycle
-// =======================
+// =============================
 void Waveshare2in15B::setup() {
-  ESP_LOGI(TAG, "Initializing Waveshare 2.15\" B e-paper");
+  ESP_LOGI(TAG, "Setting up Waveshare 2.15\" B e-paper");
 
   this->spi_setup();
+
+  if (dc_pin_)     dc_pin_->setup();
+  if (reset_pin_)  reset_pin_->setup();
+  if (busy_pin_)   busy_pin_->setup();
+
+  // Hardware reset (recommended)
+  if (reset_pin_ != nullptr) {
+    reset_pin_->digital_write(false);
+    delay(10);
+    reset_pin_->digital_write(true);
+    delay(10);
+  }
 
   memset(buffer_black_, 0xFF, sizeof(buffer_black_));
   memset(buffer_red_,   0xFF, sizeof(buffer_red_));
@@ -95,7 +123,7 @@ void Waveshare2in15B::setup() {
   send_data(0x17);
 
   send_command(CMD_POWER_ON);
-  delay(100);
+  wait_until_idle_();
 
   send_command(CMD_PANEL_SETTING);
   send_data(0x0F);
@@ -116,36 +144,36 @@ void Waveshare2in15B::setup() {
 
   load_lut_();
 
-  ESP_LOGI(TAG, "Display initialized");
+  ESP_LOGI(TAG, "Waveshare display initialized");
 }
 
 void Waveshare2in15B::update() {
-  ESP_LOGD(TAG, "Updating display");
+  ESP_LOGD(TAG, "Updating e-paper display");
 
-  // Trigger ESPHome draw lambda
+  // Let ESPHome draw into buffers
   this->do_update_();
 
-  // Black plane
+  // Black layer
   send_command(CMD_DATA_START_TRANSMISSION_1);
   delay(2);
   for (size_t i = 0; i < sizeof(buffer_black_); i++)
     send_data(buffer_black_[i]);
 
-  // Red plane
+  // Red layer
   send_command(CMD_DATA_START_TRANSMISSION_2);
   delay(2);
   for (size_t i = 0; i < sizeof(buffer_red_); i++)
     send_data(buffer_red_[i]);
 
   send_command(CMD_DISPLAY_REFRESH);
-  delay(300);
+  wait_until_idle_();
 
-  ESP_LOGI(TAG, "Refresh triggered");
+  ESP_LOGI(TAG, "Display refresh complete");
 }
 
 void Waveshare2in15B::fill(Color color) {
-  uint8_t v = color.is_on() ? 0x00 : 0xFF;
-  memset(buffer_black_, v, sizeof(buffer_black_));
+  uint8_t fill = color.is_on() ? 0x00 : 0xFF;
+  memset(buffer_black_, fill, sizeof(buffer_black_));
   memset(buffer_red_, 0xFF, sizeof(buffer_red_));
 }
 

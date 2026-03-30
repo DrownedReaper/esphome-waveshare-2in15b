@@ -22,7 +22,7 @@ static const uint8_t CMD_VCOM_AND_DATA_INTERVAL    = 0x50;
 static const uint8_t CMD_VCM_DC_SETTING             = 0x82;
 
 // =====================
-// LUTs for 2.15" B Panel
+// LUTs (2.15" B panel)
 // =====================
 static const uint8_t LUT_VCOM[] = {
   0x0E,0x14,0x01,0x0A,0x06,0x04,0x0A,0x0A,
@@ -50,30 +50,27 @@ static const uint8_t LUT_BW[] = {
 };
 
 // =====================
-// Low‑level SPI helpers
+// Low-level helpers
 // =====================
 void Waveshare2in15B::send_command(uint8_t cmd) {
   if (dc_pin_)
     dc_pin_->digital_write(false);  // COMMAND
-
   this->write_byte(cmd);
 }
 
 void Waveshare2in15B::send_data(uint8_t data) {
   if (dc_pin_)
     dc_pin_->digital_write(true);   // DATA
-
   this->write_byte(data);
 }
 
-// BUSY LOW = busy, HIGH = idle (HAT+ boards)
+// BUSY: HIGH = busy, LOW = idle (HAT+ B boards)
 void Waveshare2in15B::wait_until_idle_() {
-  if (!busy_pin_)
-    return;
+  if (!busy_pin_) return;
 
-  ESP_LOGV(TAG, "Waiting for BUSY (HIGH = idle)...");
-  while (!busy_pin_->digital_read()) {
-    delay(5);
+  ESP_LOGV(TAG, "Waiting for BUSY (LOW = idle)...");
+  while (busy_pin_->digital_read()) {
+    delay(10);
   }
 }
 
@@ -98,13 +95,17 @@ void Waveshare2in15B::setup() {
   if (reset_pin_) reset_pin_->setup();
   if (busy_pin_)  busy_pin_->setup();
 
-  // Longer reset for HAT+ board
+  // Extra-long reset for HAT+
   if (reset_pin_) {
     reset_pin_->digital_write(false);
     delay(200);
     reset_pin_->digital_write(true);
     delay(200);
   }
+
+  // Force wake-up in case panel was left in deep sleep
+  send_command(CMD_POWER_ON);
+  delay(300);
 
   memset(buffer_black_, 0xFF, sizeof(buffer_black_));
   memset(buffer_red_,   0xFF, sizeof(buffer_red_));
@@ -130,7 +131,7 @@ void Waveshare2in15B::setup() {
   send_command(CMD_PLL_CONTROL);
   send_data(0x3A);
 
-  // ✅ Correct resolution order (296 × 160)
+  // ✅ Correct resolution byte order
   send_command(CMD_RESOLUTION_SETTING);
   send_data(0x01); // width high
   send_data(0x28); // width low
@@ -153,18 +154,24 @@ void Waveshare2in15B::update() {
 
   this->do_update_();
 
-  // Black layer
-  send_command(CMD_DATA_START_TRANSMISSION_1);
+  // -------- Black layer --------
   this->enable();
+  if (dc_pin_) dc_pin_->digital_write(false);
+  this->write_byte(CMD_DATA_START_TRANSMISSION_1);
+  if (dc_pin_) dc_pin_->digital_write(true);
+
   for (uint8_t b : buffer_black_)
-    send_data(b);
+    this->write_byte(b);
   this->disable();
 
-  // Red layer
-  send_command(CMD_DATA_START_TRANSMISSION_2);
+  // -------- Red layer --------
   this->enable();
+  if (dc_pin_) dc_pin_->digital_write(false);
+  this->write_byte(CMD_DATA_START_TRANSMISSION_2);
+  if (dc_pin_) dc_pin_->digital_write(true);
+
   for (uint8_t b : buffer_red_)
-    send_data(b);
+    this->write_byte(b);
   this->disable();
 
   send_command(CMD_DISPLAY_REFRESH);

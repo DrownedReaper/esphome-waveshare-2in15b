@@ -10,7 +10,11 @@ namespace waveshare {
 
 class Waveshare2in15B
     : public display::DisplayBuffer,
-      public spi::SPIClient {
+      public spi::SPIDevice<
+          spi::SPIBitOrder::MSB_FIRST,
+          spi::SPIClockPolarity::LOW,
+          spi::SPIClockPhase::LEADING,
+          spi::SPIDataRate::DATA_RATE_4MHZ> {
 
  public:
   void setup() override;

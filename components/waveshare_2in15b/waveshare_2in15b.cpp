@@ -52,19 +52,19 @@ static const uint8_t LUT_BW[] = {
 // =============================
 // Low‑level helpers (SPIClient)
 // =============================
-void Waveshare2in15B::send_command(uint8_t cmd) {
-  if (dc_pin_ != nullptr)
-    dc_pin_->digital_write(false);  // COMMAND
 
-  this->write(cmd);
-}
-
-void Waveshare2in15B::send_data(uint8_t data) {
+void Waveshare2in15B::send_command(uint8_t cmd) {void Waveshare2(uint8_t data) {
   if (dc_pin_ != nullptr)
     dc_pin_->digital_write(true);   // DATA
 
-  this->write(data);
+  this->writer_.write(&data, 1);
 }
+  if (dc_pin_ != nullptr)
+    dc_pin_->digital_write(false);  // COMMAND
+
+  this->writer_.write(&cmd, 1);
+}
+
 
 void Waveshare2in15B::wait_until_idle_() {
   if (busy_pin_ == nullptr)

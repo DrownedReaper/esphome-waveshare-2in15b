@@ -215,6 +215,8 @@ void Waveshare2in15B::update() {
 
   if (!initialized_) return;
 
+  refresh_requested_ = true;
+  
   static bool busy_logged = false;
 
   // ---- Refresh already running: wait non‑blocking ----

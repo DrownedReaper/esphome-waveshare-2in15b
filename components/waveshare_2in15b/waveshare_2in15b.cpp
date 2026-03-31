@@ -82,7 +82,7 @@ void Waveshare2in15B::load_lut_() {
 void Waveshare2in15B::setup() {
   ESP_LOGI(TAG, "Scheduling Waveshare display init");
 
-  this->set_timeout("ws_init", 500, this {
+  this->set_timeout("ws_init", 500, [this]() {
     this->init_display_();
   });
 }

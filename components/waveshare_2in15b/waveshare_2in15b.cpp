@@ -216,10 +216,29 @@ void Waveshare2in15B::update() {
     return;
   }
 
+  static bool busy_logged = false;
+
+  // If refresh already started, just wait non-blocking
+  if (refresh_in_progress_) {
+    if (busy_pin_ && busy_pin_->digital_read()) {
+      if (!busy_logged) {
+        ESP_LOGD(TAG, "Display BUSY during refresh, waiting…");
+        busy_logged = true;
+      }
+      return;  // non-blocking
+    }
+
+    ESP_LOGI(TAG, "Display refresh complete");
+    refresh_in_progress_ = false;
+    busy_logged = false;
+    return;
+  }
+
   ESP_LOGD(TAG, "Updating display");
+
   this->do_update_();
 
-  // -------- Black layer --------
+  // --- Black layer ---
   this->enable();
   if (dc_pin_) dc_pin_->digital_write(false);
   this->write_byte(CMD_DATA_START_TRANSMISSION_1);
@@ -232,7 +251,7 @@ void Waveshare2in15B::update() {
   this->disable();
   yield();
 
-  // -------- Red layer --------
+  // --- Red layer ---
   this->enable();
   if (dc_pin_) dc_pin_->digital_write(false);
   this->write_byte(CMD_DATA_START_TRANSMISSION_2);
@@ -246,9 +265,9 @@ void Waveshare2in15B::update() {
   yield();
 
   send_command(CMD_DISPLAY_REFRESH);
-  wait_until_idle_();
 
-  ESP_LOGI(TAG, "Display refresh complete");
+  // Transition to non-blocking BUSY wait
+  refresh_in_progress_ = true;
 }
 
 void Waveshare2in15B::loop() {

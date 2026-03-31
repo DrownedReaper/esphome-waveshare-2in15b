@@ -87,75 +87,85 @@ void Waveshare2in15B::setup() {
   });
 }
 
-void Waveshare2in15B::init_display_() {
-  ESP_LOGI(TAG, "Initializing Waveshare 2.15\" B e-paper");
+void Waveshare2in15B::init_display_step_() {
+  switch (init_step_) {
+    case 0:
+      ESP_LOGI(TAG, "Initializing Waveshare 2.15\" B e-paper");
+      this->spi_setup();
+      init_step_++;
+      return;
 
-  this->spi_setup();
-  yield();
+    case 1:
+      if (power_pin_) {
+        power_pin_->setup();
+        power_pin_->digital_write(true);
+      }
+      init_step_++;
+      return;
 
-  if (power_pin_) {
-    power_pin_->setup();
-    power_pin_->digital_write(true);
-    delay(10);
-    yield();
+    case 2:
+      if (dc_pin_) dc_pin_->setup();
+      if (reset_pin_) reset_pin_->setup();
+      if (busy_pin_) busy_pin_->setup();
+      init_step_++;
+      return;
+
+    case 3:
+      if (reset_pin_) reset_pin_->digital_write(false);
+      init_step_++;
+      return;
+
+    case 4:
+      if (reset_pin_) reset_pin_->digital_write(true);
+      init_step_++;
+      return;
+
+    case 5:
+      send_command(CMD_POWER_ON);
+      init_step_++;
+      return;
+
+    case 6:
+      memset(buffer_black_, 0xFF, sizeof(buffer_black_));
+      memset(buffer_red_,   0xFF, sizeof(buffer_red_));
+      init_step_++;
+      return;
+
+    case 7:
+      send_command(CMD_POWER_SETTING);
+      send_data(0x03); send_data(0x00);
+      send_data(0x2B); send_data(0x2B);
+      init_step_++;
+      return;
+
+    case 8:
+      send_command(CMD_BOOSTER_SOFT_START);
+      send_data(0x17); send_data(0x17); send_data(0x17);
+      init_step_++;
+      return;
+
+    case 9:
+      wait_until_idle_();
+      init_step_++;
+      return;
+
+    case 10:
+      send_command(CMD_PANEL_SETTING);
+      send_data(0x0F);
+      send_command(CMD_PLL_CONTROL);
+      send_data(0x3A);
+      send_command(CMD_RESOLUTION_SETTING);
+      send_data(0x01); send_data(0x28);
+      send_data(0x00); send_data(0xA0);
+      init_step_++;
+      return;
+
+    case 11:
+      load_lut_();
+      initialized_ = true;
+      ESP_LOGI(TAG, "Display initialized");
+      return;
   }
-
-  if (dc_pin_)    dc_pin_->setup();
-  if (reset_pin_) reset_pin_->setup();
-  if (busy_pin_)  busy_pin_->setup();
-
-  if (reset_pin_) {
-    reset_pin_->digital_write(false);
-    delay(200);
-    yield();
-    reset_pin_->digital_write(true);
-    delay(200);
-    yield();
-  }
-
-  send_command(CMD_POWER_ON);
-  delay(300);
-  yield();
-
-  memset(buffer_black_, 0xFF, sizeof(buffer_black_));
-  memset(buffer_red_,   0xFF, sizeof(buffer_red_));
-
-  send_command(CMD_POWER_SETTING);
-  send_data(0x03); send_data(0x00);
-  send_data(0x2B); send_data(0x2B);
-  yield();
-
-  send_command(CMD_BOOSTER_SOFT_START);
-  send_data(0x17); send_data(0x17); send_data(0x17);
-  yield();
-
-  send_command(CMD_POWER_ON);
-  delay(300);
-  wait_until_idle_();
-
-  send_command(CMD_PANEL_SETTING);
-  send_data(0x0F);
-
-  send_command(CMD_PLL_CONTROL);
-  send_data(0x3A);
-
-  send_command(CMD_RESOLUTION_SETTING);
-  send_data(0x01); // width high
-  send_data(0x28); // width low
-  send_data(0x00); // height high
-  send_data(0xA0); // height low
-
-  send_command(CMD_VCOM_AND_DATA_INTERVAL);
-  send_data(0x77);
-
-  send_command(CMD_VCM_DC_SETTING);
-  send_data(0x0A);
-
-  load_lut_();
-  yield();
-
-  initialized_ = true;
-  ESP_LOGI(TAG, "Display initialized");
 }
 
 void Waveshare2in15B::update() {
@@ -197,6 +207,12 @@ void Waveshare2in15B::update() {
   wait_until_idle_();
 
   ESP_LOGI(TAG, "Display refresh complete");
+}
+
+void Waveshare2in15B::loop() {
+  if (!initialized_) {
+    init_display_step_();
+  }
 }
 
 // =====================

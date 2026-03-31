@@ -63,7 +63,7 @@ void Waveshare2in15B::wait_until_idle_() {
 
   ESP_LOGV(TAG, "Waiting for BUSY...");
   while (busy_pin_->digital_read()) {
-    yield();        // feed task WDT
+    yield();
     delay(10);
   }
 }
@@ -82,11 +82,9 @@ void Waveshare2in15B::load_lut_() {
 void Waveshare2in15B::setup() {
   ESP_LOGI(TAG, "Scheduling Waveshare display init");
 
-  // Defer heavy initialization so task WDT never fires in setup()
-  
-this->set_timeout("ws_init", 500, [this]() {
-  this->init_display_();
-});
+  this->set_timeout("ws_init", 500, this {
+    this->init_display_();
+  });
 }
 
 void Waveshare2in15B::init_display_() {
@@ -156,12 +154,17 @@ void Waveshare2in15B::init_display_() {
   load_lut_();
   yield();
 
+  initialized_ = true;
   ESP_LOGI(TAG, "Display initialized");
 }
 
 void Waveshare2in15B::update() {
-  ESP_LOGD(TAG, "Updating display");
+  if (!initialized_) {
+    ESP_LOGV(TAG, "Display not initialized yet, skipping update");
+    return;
+  }
 
+  ESP_LOGD(TAG, "Updating display");
   this->do_update_();
 
   // -------- Black layer --------

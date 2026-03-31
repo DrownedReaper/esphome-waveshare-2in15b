@@ -32,6 +32,7 @@ class Waveshare2in15B
 
  protected:
   bool initialized_{false};
+  bool refresh_requested_{false};
   bool refresh_in_progress_{false};
   uint8_t init_step_{0};
 

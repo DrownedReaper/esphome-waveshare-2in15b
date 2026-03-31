@@ -84,9 +84,8 @@ void Waveshare2in15B::setup() {
 
   // Defer heavy initialization so task WDT never fires in setup()
   
-init_timer_ = this->set_interval(500, [this]() {
+this->set_timeout("ws_init", 500, [this]() {
   this->init_display_();
-  this->cancel_interval(init_timer_);
 });
 }
 

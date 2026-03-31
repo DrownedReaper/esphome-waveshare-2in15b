@@ -211,22 +211,20 @@ void Waveshare2in15B::init_display_step_() {
 }
 
 void Waveshare2in15B::update() {
-  ESP_LOGI(TAG, "update() called");
-  if (!initialized_) {
-    ESP_LOGV(TAG, "Display not initialized yet, skipping update");
-    return;
-  }
+  ESP_LOGV(TAG, "update() called");
+
+  if (!initialized_) return;
 
   static bool busy_logged = false;
 
-  // If refresh already started, just wait non-blocking
+  // ---- Refresh already running: wait non‑blocking ----
   if (refresh_in_progress_) {
     if (busy_pin_ && busy_pin_->digital_read()) {
       if (!busy_logged) {
         ESP_LOGD(TAG, "Display BUSY during refresh, waiting…");
         busy_logged = true;
       }
-      return;  // non-blocking
+      return;
     }
 
     ESP_LOGI(TAG, "Display refresh complete");
@@ -235,11 +233,18 @@ void Waveshare2in15B::update() {
     return;
   }
 
-  ESP_LOGD(TAG, "Updating display");
+  // ---- No refresh requested: do nothing ----
+  if (!refresh_requested_) {
+    return;
+  }
+
+  // ---- Start refresh now ----
+  refresh_requested_ = false;
+  ESP_LOGI(TAG, "Updating display");
 
   this->do_update_();
 
-  // --- Black layer ---
+  // Black layer
   this->enable();
   if (dc_pin_) dc_pin_->digital_write(false);
   this->write_byte(CMD_DATA_START_TRANSMISSION_1);
@@ -252,7 +257,7 @@ void Waveshare2in15B::update() {
   this->disable();
   yield();
 
-  // --- Red layer ---
+  // Red layer
   this->enable();
   if (dc_pin_) dc_pin_->digital_write(false);
   this->write_byte(CMD_DATA_START_TRANSMISSION_2);
@@ -263,11 +268,8 @@ void Waveshare2in15B::update() {
     if ((i % 64) == 0) yield();
   }
   this->disable();
-  yield();
 
   send_command(CMD_DISPLAY_REFRESH);
-
-  // Transition to non-blocking BUSY wait
   refresh_in_progress_ = true;
 }
 
@@ -275,6 +277,10 @@ void Waveshare2in15B::loop() {
   if (!initialized_) {
     init_display_step_();
   }
+}
+
+void Waveshare2in15B::request_refresh() {
+  refresh_requested_ = true;
 }
 
 // =====================

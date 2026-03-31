@@ -88,10 +88,12 @@ void Waveshare2in15B::init_display_step_() {
     case 0:
       ESP_LOGI(TAG, "Initializing Waveshare 2.15\" B e-paper");
       this->spi_setup();
+      ESP_LOGI(TAG, "[INIT 0] spi_setup()");
       init_step_++;
       return;
 
     case 1:
+      ESP_LOGI(TAG, "[INIT 1] Power pin enable");
       if (power_pin_) {
         power_pin_->setup();
         power_pin_->digital_write(true);
@@ -100,6 +102,7 @@ void Waveshare2in15B::init_display_step_() {
       return;
 
     case 2:
+      ESP_LOGI(TAG, "[INIT 2] GPIO setup");
       if (dc_pin_) dc_pin_->setup();
       if (reset_pin_) reset_pin_->setup();
       if (busy_pin_) busy_pin_->setup();
@@ -107,27 +110,32 @@ void Waveshare2in15B::init_display_step_() {
       return;
 
     case 3:
+      ESP_LOGI(TAG, "[INIT 3] Reset LOW");
       if (reset_pin_) reset_pin_->digital_write(false);
       init_step_++;
       return;
 
     case 4:
+      ESP_LOGI(TAG, "[INIT 4] Reset HIGH");
       if (reset_pin_) reset_pin_->digital_write(true);
       init_step_++;
       return;
 
     case 5:
+      ESP_LOGI(TAG, "[INIT 5] POWER ON command");
       send_command(CMD_POWER_ON);
       init_step_++;
       return;
 
     case 6:
+      ESP_LOGI(TAG, "[INIT 6] Clear frame buffers");
       memset(buffer_black_, 0xFF, sizeof(buffer_black_));
       memset(buffer_red_,   0xFF, sizeof(buffer_red_));
       init_step_++;
       return;
 
     case 7:
+      ESP_LOGI(TAG, "[INIT 7] Power settings");
       send_command(CMD_POWER_SETTING);
       send_data(0x03); send_data(0x00);
       send_data(0x2B); send_data(0x2B);
@@ -135,6 +143,7 @@ void Waveshare2in15B::init_display_step_() {
       return;
 
     case 8:
+      ESP_LOGI(TAG, "[INIT 8] Booster soft start");
       send_command(CMD_BOOSTER_SOFT_START);
       send_data(0x17); send_data(0x17); send_data(0x17);
       init_step_++;
@@ -145,14 +154,14 @@ void Waveshare2in15B::init_display_step_() {
 
       if (busy_pin_ && busy_pin_->digital_read()) {
         if (!was_busy) {
-          ESP_LOGD(TAG, "Display BUSY asserted, waiting…");
+          ESP_LOGI(TAG, "[INIT 9] BUSY asserted, waiting");
           was_busy = true;
         }
         return;  // still busy, come back next loop iteration
       }
 
       if (was_busy) {
-        ESP_LOGD(TAG, "Display BUSY cleared, continuing init");
+        ESP_LOGI(TAG, "[INIT 9] BUSY cleared");
         was_busy = false;
       }
 
@@ -160,8 +169,8 @@ void Waveshare2in15B::init_display_step_() {
       return;
     }
 
-
     case 10:
+      ESP_LOGI(TAG, "[INIT 10] Panel config, resolution & timings");
       send_command(CMD_PANEL_SETTING);
       send_data(0x0F);
       send_command(CMD_PLL_CONTROL);

@@ -141,7 +141,10 @@ void Waveshare2in15B::init_display_step_() {
       return;
 
     case 9:
-      wait_until_idle_();
+      if (busy_pin_ && busy_pin_->digital_read()) {
+        // still busy → come back next loop
+        return;
+      }
       init_step_++;
       return;
 

@@ -119,9 +119,9 @@ void Waveshare2in15B::init_display_step_() {
       ESP_LOGI(TAG, "[INIT 4] Reset HIGH");
       if (reset_pin_) reset_pin_->digital_write(true);
       init_step_++;
+      delay(10);
       return;
 
-    
     case 5:
       ESP_LOGI(TAG, "[INIT 5] POWER ON");
       send_command(CMD_POWER_ON);

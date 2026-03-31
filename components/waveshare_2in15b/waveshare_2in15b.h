@@ -19,6 +19,7 @@ class Waveshare2in15B
  public:
   void setup() override;
   void update() override;
+  void loop() override;
   void fill(Color color) override;
 
   display::DisplayType get_display_type() override;
@@ -33,8 +34,6 @@ class Waveshare2in15B
   bool initialized_{false};
   uint8_t init_step_{0};
   void init_display_step_
-  
-  void init_display_();
 
   int get_width_internal() override { return 296; }
   int get_height_internal() override { return 160; }

@@ -30,6 +30,7 @@ class Waveshare2in15B
 
 
  protected:
+  bool initialized_{false};
   void init_display_();
 
   int get_width_internal() override { return 296; }

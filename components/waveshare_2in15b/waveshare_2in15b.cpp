@@ -140,13 +140,26 @@ void Waveshare2in15B::init_display_step_() {
       init_step_++;
       return;
 
-    case 9:
+    case 9: {
+      static bool was_busy = false;
+
       if (busy_pin_ && busy_pin_->digital_read()) {
-        // still busy → come back next loop
-        return;
+        if (!was_busy) {
+          ESP_LOGD(TAG, "Display BUSY asserted, waiting…");
+          was_busy = true;
+        }
+        return;  // still busy, come back next loop iteration
       }
+
+      if (was_busy) {
+        ESP_LOGD(TAG, "Display BUSY cleared, continuing init");
+        was_busy = false;
+      }
+
       init_step_++;
       return;
+    }
+
 
     case 10:
       send_command(CMD_PANEL_SETTING);

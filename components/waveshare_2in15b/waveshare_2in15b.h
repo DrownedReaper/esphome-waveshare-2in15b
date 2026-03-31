@@ -31,6 +31,9 @@ class Waveshare2in15B
 
  protected:
   bool initialized_{false};
+  uint8_t init_step_{0};
+  void init_display_step_
+  
   void init_display_();
 
   int get_width_internal() override { return 296; }

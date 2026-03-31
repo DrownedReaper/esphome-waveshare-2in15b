@@ -211,6 +211,7 @@ void Waveshare2in15B::init_display_step_() {
 }
 
 void Waveshare2in15B::update() {
+  ESP_LOGI(TAG, "update() called");
   if (!initialized_) {
     ESP_LOGV(TAG, "Display not initialized yet, skipping update");
     return;

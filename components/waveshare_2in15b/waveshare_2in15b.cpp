@@ -271,8 +271,15 @@ void Waveshare2in15B::update() {
   }
   this->disable();
 
-  send_command(CMD_DISPLAY_REFRESH);
-  refresh_in_progress_ = true;
+  // Set Display Update Control (full update, tri-colour)
+  send_command(0x22);
+  send_data(0xF7);   // common full-refresh value for 2.15" B
+
+  // Master Activation (this actually starts the waveform)
+  send_command(0x20);
+
+  // Now wait for BUSY to complete
+  wait_until_idle_();
 }
 
 void Waveshare2in15B::loop() {

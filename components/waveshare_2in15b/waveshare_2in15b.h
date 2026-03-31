@@ -30,7 +30,6 @@ class Waveshare2in15B
 
 
  protected:
-  esphome::InternalSchedulerID init_timer_{0};
   void init_display_();
 
   int get_width_internal() override { return 296; }

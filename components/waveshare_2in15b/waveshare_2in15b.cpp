@@ -219,11 +219,11 @@ void Waveshare2in15B::update() {
 
   static bool busy_logged = false;
 
-  // If a refresh is already running, wait non-blocking
+  // If a refresh is already running, wait non‑blocking
   if (refresh_in_progress_) {
     if (busy_pin_ && busy_pin_->digital_read()) {
       if (!busy_logged) {
-        ESP_LOGD(TAG, "Display BUSY during refresh, waiting…");
+        ESP_LOGI(TAG, "Display BUSY during refresh, waiting…");
         busy_logged = true;
       }
       return;
@@ -235,7 +235,7 @@ void Waveshare2in15B::update() {
     return;
   }
 
-  // Start a new refresh
+  // --- Start a refresh ---
   ESP_LOGI(TAG, "Updating display");
 
   this->do_update_();
@@ -248,7 +248,10 @@ void Waveshare2in15B::update() {
 
   for (size_t i = 0; i < sizeof(buffer_black_); i++) {
     this->write_byte(buffer_black_[i]);
-    if ((i % 64) == 0) yield();
+    if ((i % 64) == 0) {
+      yield();
+      delay(1);  // feeds WDT on ESP32‑C3
+    }
   }
   this->disable();
   yield();
@@ -261,7 +264,10 @@ void Waveshare2in15B::update() {
 
   for (size_t i = 0; i < sizeof(buffer_red_); i++) {
     this->write_byte(buffer_red_[i]);
-    if ((i % 64) == 0) yield();
+    if ((i % 64) == 0) {
+      yield();
+      delay(1);  // feeds WDT
+    }
   }
   this->disable();
 

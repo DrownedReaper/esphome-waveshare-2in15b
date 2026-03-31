@@ -213,13 +213,13 @@ void Waveshare2in15B::init_display_step_() {
 void Waveshare2in15B::update() {
   ESP_LOGV(TAG, "update() called");
 
-  if (!initialized_) return;
+  if (!initialized_) {
+    return;
+  }
 
-  refresh_requested_ = true;
-  
   static bool busy_logged = false;
 
-  // ---- Refresh already running: wait non‑blocking ----
+  // If a refresh is already running, wait non-blocking
   if (refresh_in_progress_) {
     if (busy_pin_ && busy_pin_->digital_read()) {
       if (!busy_logged) {
@@ -235,13 +235,7 @@ void Waveshare2in15B::update() {
     return;
   }
 
-  // ---- No refresh requested: do nothing ----
-  if (!refresh_requested_) {
-    return;
-  }
-
-  // ---- Start refresh now ----
-  refresh_requested_ = false;
+  // Start a new refresh
   ESP_LOGI(TAG, "Updating display");
 
   this->do_update_();
@@ -279,10 +273,6 @@ void Waveshare2in15B::loop() {
   if (!initialized_) {
     init_display_step_();
   }
-}
-
-void Waveshare2in15B::request_refresh() {
-  refresh_requested_ = true;
 }
 
 // =====================

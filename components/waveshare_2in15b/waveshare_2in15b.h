@@ -29,11 +29,8 @@ class Waveshare2in15B
   void set_busy_pin(GPIOPin *pin) { busy_pin_ = pin; }
   void set_power_pin(GPIOPin *pin) { power_pin_ = pin; }
 
-  void request_refresh();
-
  protected:
   bool initialized_{false};
-  bool refresh_requested_{false};
   bool refresh_in_progress_{false};
   uint8_t init_step_{0};
 

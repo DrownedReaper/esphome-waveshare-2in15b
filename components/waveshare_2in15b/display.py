@@ -8,16 +8,13 @@ from esphome.const import (
     CONF_ID,
     CONF_LAMBDA,
     CONF_RESET_PIN,
-    CONF_UPDATE_INTERVAL,
 )
 
 DEPENDENCIES = ["spi"]
 AUTO_LOAD = ["display"]
 
-# Namespace MUST match the C++ namespace exactly
 waveshare_2in15b_ns = cg.esphome_ns.namespace("waveshare_2in15b")
 
-# Class name MUST match the C++ class name exactly
 WaveshareEPaper2in15B = waveshare_2in15b_ns.class_(
     "WaveshareEPaper2in15B",
     display.DisplayBuffer,
@@ -41,7 +38,7 @@ CONFIG_SCHEMA = (
 
 async def to_code(config):
     var = cg.new_Pvariable(config[CONF_ID])
-    await cg.register_component(var, config)
+    # register_display internally calls register_component — do NOT call it separately
     await display.register_display(var, config)
     await spi.register_spi_device(var, config)
 

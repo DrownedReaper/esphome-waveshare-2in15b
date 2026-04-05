@@ -53,10 +53,10 @@ class WaveshareEPaper2in15B
 
   void send_command_(uint8_t cmd);
   void send_data_(uint8_t data);
+  void wait_busy_high_(uint32_t timeout_ms, const char *label);
   void wait_until_idle_();
   void hardware_reset_();
   void initialize_display_();
-  void log_pin_states_(const char *context);  // diagnostic
 
   GPIOPin *dc_pin_{nullptr};
   GPIOPin *reset_pin_{nullptr};

@@ -3,37 +3,38 @@ import esphome.config_validation as cv
 from esphome import pins
 from esphome.components import display, spi
 from esphome.const import (
+    CONF_BUSY_PIN,
     CONF_DC_PIN,
     CONF_ID,
     CONF_LAMBDA,
-    CONF_PAGES,
     CONF_RESET_PIN,
-    CONF_BUSY_PIN,
     CONF_UPDATE_INTERVAL,
 )
 
 DEPENDENCIES = ["spi"]
 AUTO_LOAD = ["display"]
 
+# Namespace must match the C++ namespace in the .h/.cpp files exactly
 waveshare_2in15b_ns = cg.esphome_ns.namespace("waveshare_2in15b")
+
+# Class name must match exactly what is declared in waveshare_2in15b.h
 WaveshareEPaper2in15B = waveshare_2in15b_ns.class_(
     "WaveshareEPaper2in15B",
-    display.DisplayBuffer,
+    cg.PollingComponent,
     spi.SPIDevice,
-    cg.Component,
 )
 
-CONFIG_SCHEMA = (
-    display.FULL_DISPLAY_SCHEMA.extend(
+CONFIG_SCHEMA = cv.All(
+    display.BASIC_DISPLAY_SCHEMA.extend(
         {
             cv.GenerateID(): cv.declare_id(WaveshareEPaper2in15B),
             cv.Required(CONF_DC_PIN): pins.gpio_output_pin_schema,
             cv.Optional(CONF_RESET_PIN): pins.gpio_output_pin_schema,
             cv.Optional(CONF_BUSY_PIN): pins.gpio_input_pin_schema,
-            cv.Optional(CONF_UPDATE_INTERVAL, default="60s"): cv.update_interval,
+            cv.Optional(CONF_UPDATE_INTERVAL, default="300s"): cv.update_interval,
         }
     )
-    .extend(cv.COMPONENT_SCHEMA)
+    .extend(cv.polling_component_schema("300s"))
     .extend(spi.spi_device_schema(cs_pin_required=True))
 )
 
@@ -58,12 +59,7 @@ async def to_code(config):
     if CONF_LAMBDA in config:
         lambda_ = await cg.process_lambda(
             config[CONF_LAMBDA],
-            [(display.DisplayBufferRef, "it")],
+            [(display.DisplayRef, "it")],
             return_type=cg.void,
         )
         cg.add(var.set_writer(lambda_))
-
-    if CONF_PAGES in config:
-        for page_config in config[CONF_PAGES]:
-            page = await display.make_page(page_config)
-            cg.add(var.add_page(page))

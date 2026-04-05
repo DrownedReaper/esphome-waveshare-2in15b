@@ -22,7 +22,7 @@ void WaveshareEPaper2in15B::send_data_(uint8_t data) {
   this->disable();
 }
 
-// SSD1680: BUSY HIGH = working, LOW = idle. Wait for LOW.
+// SSD1680: BUSY HIGH = busy, LOW = idle
 void WaveshareEPaper2in15B::wait_until_idle_() {
   if (this->busy_pin_ == nullptr) {
     delay(2000);
@@ -30,8 +30,8 @@ void WaveshareEPaper2in15B::wait_until_idle_() {
   }
   uint32_t start = millis();
   while (this->busy_pin_->digital_read() == true) {
-    if (millis() - start > 15000) {
-      ESP_LOGW(TAG, "BUSY timeout 15s");
+    if (millis() - start > 20000) {
+      ESP_LOGW(TAG, "BUSY timeout 20s");
       break;
     }
     delay(10);
@@ -47,26 +47,28 @@ void WaveshareEPaper2in15B::hardware_reset_() {
   this->reset_pin_->digital_write(true);  delay(20);
 }
 
-// RAM window: X=0..19 (20 bytes = 160px), Y=0..295
+// RAM window: X byte 0..19 (160px), Y line 0..295
+// Using 0x03 data entry (X-inc, Y-inc) so both counters start at 0
 void WaveshareEPaper2in15B::set_ram_area_() {
   this->send_command_(SSD1680_SET_RAM_X);
-  this->send_data_(0x00);
-  this->send_data_(0x13);  // (160/8)-1 = 19 = 0x13
+  this->send_data_(0x00);   // X start byte = 0
+  this->send_data_(0x13);   // X end byte  = 19  (160/8 - 1)
 
   this->send_command_(SSD1680_SET_RAM_Y);
-  this->send_data_(0x27);  // Y start lo = 295 & 0xFF
-  this->send_data_(0x01);  // Y start hi = 295 >> 8
-  this->send_data_(0x00);  // Y end lo
-  this->send_data_(0x00);  // Y end hi
+  this->send_data_(0x00);   // Y start lo  = 0
+  this->send_data_(0x00);   // Y start hi
+  this->send_data_(0x27);   // Y end lo    = 295 & 0xFF
+  this->send_data_(0x01);   // Y end hi    = 295 >> 8
 }
 
+// Reset RAM address counters to (0,0) — matches 0x03 X-inc Y-inc mode
 void WaveshareEPaper2in15B::set_ram_counter_() {
   this->send_command_(SSD1680_SET_RAM_X_COUNTER);
   this->send_data_(0x00);
 
   this->send_command_(SSD1680_SET_RAM_Y_COUNTER);
-  this->send_data_(0x27);  // start at Y=295 (matches Y decrement direction)
-  this->send_data_(0x01);
+  this->send_data_(0x00);
+  this->send_data_(0x00);
 }
 
 void WaveshareEPaper2in15B::initialize_display_() {
@@ -75,25 +77,25 @@ void WaveshareEPaper2in15B::initialize_display_() {
   this->hardware_reset_();
   this->wait_until_idle_();
 
+  // Software reset
   this->send_command_(SSD1680_SW_RESET);
   this->wait_until_idle_();
 
-  // Driver Output: 296 gate lines (295 = 0x127)
+  // Driver Output Control: 296 gate lines (MUX=295=0x127)
   this->send_command_(SSD1680_DRIVER_OUTPUT);
-  this->send_data_(0x27);
-  this->send_data_(0x01);
-  this->send_data_(0x00);
+  this->send_data_(0x27);   // MUX[7:0]
+  this->send_data_(0x01);   // MUX[8]
+  this->send_data_(0x00);   // GD=0, SM=0, TB=0
 
-  // Data Entry Mode:
-  // 0x03 = X inc, Y inc  → portrait, normal scan (caused -90° rotation)
-  // 0x06 = X inc, Y dec  → portrait, Y scans top-to-bottom from controller view
-  // Try 0x06 to correct the -90° rotation issue
+  // Data Entry Mode: 0x03 = X-increment, Y-increment (portrait)
+  // Rotation correction is handled in YAML with rotation: 90°
   this->send_command_(SSD1680_DATA_ENTRY_MODE);
-  this->send_data_(0x06);
+  this->send_data_(0x03);
 
+  // RAM window
   this->set_ram_area_();
 
-  // Border waveform
+  // Border waveform: follow LUT (white border)
   this->send_command_(SSD1680_BORDER_WAVEFORM);
   this->send_data_(0x05);
 
@@ -101,11 +103,12 @@ void WaveshareEPaper2in15B::initialize_display_() {
   this->send_command_(SSD1680_TEMP_SENSOR);
   this->send_data_(0x80);
 
-  // Display Update Control 1: normal BW + RED RAM
+  // Display Update Control 1: BW from 0x24, Red from 0x26, no inversion
   this->send_command_(SSD1680_DISPLAY_UPDATE_CTRL1);
   this->send_data_(0x00);
   this->send_data_(0x80);
 
+  // Set counters to (0,0)
   this->set_ram_counter_();
   this->wait_until_idle_();
 
@@ -146,26 +149,20 @@ void WaveshareEPaper2in15B::draw_absolute_pixel_internal(int x, int y, Color col
   bool is_black = (!is_red && color.r < 64 && color.g < 64 && color.b < 64);
 
   if (is_red) {
-    // RED RAM: 0=red, 1=white
-    // BW RAM:  1=white (red pixels show through RED RAM, ignore BW)
-    this->red_buffer_[byte_idx] &= ~bit_mask;
-    this->bw_buffer_[byte_idx]  |=  bit_mask;
+    this->red_buffer_[byte_idx] &= ~bit_mask;  // RED RAM 0 = red
+    this->bw_buffer_[byte_idx]  |=  bit_mask;  // BW RAM  1 = white (let red show)
   } else if (is_black) {
-    // BW RAM: 0=black, 1=white
-    // RED RAM: 1=white (so red doesn't override black)
-    this->bw_buffer_[byte_idx]  &= ~bit_mask;
-    this->red_buffer_[byte_idx] |=  bit_mask;
+    this->bw_buffer_[byte_idx]  &= ~bit_mask;  // BW RAM  0 = black
+    this->red_buffer_[byte_idx] |=  bit_mask;  // RED RAM 1 = white (no red here)
   } else {
-    // White: both planes = 1
-    this->bw_buffer_[byte_idx]  |=  bit_mask;
+    this->bw_buffer_[byte_idx]  |=  bit_mask;  // white
     this->red_buffer_[byte_idx] |=  bit_mask;
   }
 }
 
 void WaveshareEPaper2in15B::update() {
-  // Only init on first update — avoids re-flashing every cycle
   if (!this->initialized_) {
-    ESP_LOGI(TAG, "First update — initialising SSD1680");
+    ESP_LOGI(TAG, "Initialising SSD1680...");
     this->initialize_display_();
   }
 
@@ -182,10 +179,8 @@ void WaveshareEPaper2in15B::update() {
   }
   ESP_LOGI(TAG, "Frame: %u black, %u red pixels", black_px, red_px);
 
-  // Reset RAM address counters
+  // --- Write BW RAM ---
   this->set_ram_counter_();
-
-  // Write BW RAM
   this->send_command_(SSD1680_WRITE_RAM_BW);
   this->dc_pin_->digital_write(true);
   this->enable();
@@ -195,10 +190,8 @@ void WaveshareEPaper2in15B::update() {
   }
   this->disable();
 
-  // Reset counters again for RED RAM
-  this->set_ram_counter_();
-
-  // Write RED RAM
+  // --- Write RED RAM ---
+  this->set_ram_counter_();  // reset to (0,0) before RED write
   this->send_command_(SSD1680_WRITE_RAM_RED);
   this->dc_pin_->digital_write(true);
   this->enable();
@@ -208,9 +201,9 @@ void WaveshareEPaper2in15B::update() {
   }
   this->disable();
 
-  // Trigger full refresh
+  // --- Trigger full refresh ---
   this->send_command_(SSD1680_DISPLAY_UPDATE_CTRL2);
-  this->send_data_(0xF7);
+  this->send_data_(0xF7);  // full update sequence
   this->send_command_(SSD1680_MASTER_ACTIVATION);
 
   this->wait_until_idle_();

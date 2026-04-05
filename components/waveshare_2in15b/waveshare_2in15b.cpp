@@ -86,7 +86,7 @@ void WaveshareEPaper2in15B::initialize_display_() {
   this->set_ram_area_();
 
   this->send_command_(SSD1680_BORDER_WAVEFORM);
-  this->send_data_(0x05);
+  this->send_data_(0x01);  // follow BW waveform = white border
 
   this->send_command_(SSD1680_TEMP_SENSOR);
   this->send_data_(0x80);

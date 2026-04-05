@@ -10,17 +10,22 @@ namespace waveshare_2in15b {
 static const uint16_t EPD_WIDTH  = 160;
 static const uint16_t EPD_HEIGHT = 296;
 
-static const uint8_t CMD_BOOSTER_SOFT_START  = 0x06;
-static const uint8_t CMD_POWER_ON            = 0x04;
-static const uint8_t CMD_POWER_OFF           = 0x02;
-static const uint8_t CMD_PANEL_SETTING       = 0x00;
-static const uint8_t CMD_RESOLUTION_SETTING  = 0x61;
-static const uint8_t CMD_VCOM_DATA_INTERVAL  = 0x50;
-static const uint8_t CMD_TCON_SETTING        = 0x60;
-static const uint8_t CMD_DATA_START_TX_BW    = 0x10;
-static const uint8_t CMD_DATA_START_TX_RED   = 0x13;
-static const uint8_t CMD_DISPLAY_REFRESH     = 0x12;
-static const uint8_t CMD_DEEP_SLEEP          = 0x07;
+// SSD1680 command set (completely different from UC8151/UC8253)
+static const uint8_t SSD1680_SW_RESET            = 0x12;
+static const uint8_t SSD1680_DRIVER_OUTPUT        = 0x01;
+static const uint8_t SSD1680_DATA_ENTRY_MODE      = 0x11;
+static const uint8_t SSD1680_SET_RAM_X            = 0x44;
+static const uint8_t SSD1680_SET_RAM_Y            = 0x45;
+static const uint8_t SSD1680_BORDER_WAVEFORM      = 0x3C;
+static const uint8_t SSD1680_TEMP_SENSOR          = 0x18;
+static const uint8_t SSD1680_DISPLAY_UPDATE_CTRL1 = 0x21;
+static const uint8_t SSD1680_DISPLAY_UPDATE_CTRL2 = 0x22;
+static const uint8_t SSD1680_MASTER_ACTIVATION    = 0x20;
+static const uint8_t SSD1680_WRITE_RAM_BW         = 0x24;
+static const uint8_t SSD1680_WRITE_RAM_RED        = 0x26;
+static const uint8_t SSD1680_SET_RAM_X_COUNTER    = 0x4E;
+static const uint8_t SSD1680_SET_RAM_Y_COUNTER    = 0x4F;
+static const uint8_t SSD1680_NOP                  = 0xFF;
 
 class WaveshareEPaper2in15B
     : public display::DisplayBuffer,
@@ -53,10 +58,12 @@ class WaveshareEPaper2in15B
 
   void send_command_(uint8_t cmd);
   void send_data_(uint8_t data);
-  void wait_busy_high_(uint32_t timeout_ms, const char *label);
+  // SSD1680: BUSY HIGH = working, BUSY LOW = idle. Wait for LOW.
   void wait_until_idle_();
   void hardware_reset_();
   void initialize_display_();
+  void set_ram_area_();
+  void set_ram_counter_();
 
   GPIOPin *dc_pin_{nullptr};
   GPIOPin *reset_pin_{nullptr};
@@ -66,6 +73,7 @@ class WaveshareEPaper2in15B
 
   optional<std::function<void(WaveshareEPaper2in15B &)>> writer_{};
 
+  // 1 bit per pixel MSB first: 160 × 296 / 8 = 5920 bytes each
   static const uint32_t EPD_BUFFER_SIZE = (EPD_WIDTH * EPD_HEIGHT) / 8;
   uint8_t bw_buffer_[EPD_BUFFER_SIZE];
   uint8_t red_buffer_[EPD_BUFFER_SIZE];

@@ -56,12 +56,13 @@ class WaveshareEPaper2in15B
   void wait_until_idle_();
   void hardware_reset_();
   void initialize_display_();
+  void log_pin_states_(const char *context);  // diagnostic
 
   GPIOPin *dc_pin_{nullptr};
   GPIOPin *reset_pin_{nullptr};
   GPIOPin *busy_pin_{nullptr};
 
-  bool initialized_{false};  // guard so init only runs once
+  bool initialized_{false};
 
   optional<std::function<void(WaveshareEPaper2in15B &)>> writer_{};
 

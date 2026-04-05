@@ -22,16 +22,15 @@ void WaveshareEPaper2in15B::send_data_(uint8_t data) {
   this->disable();
 }
 
-// SSD1680: BUSY HIGH = busy, LOW = idle
 void WaveshareEPaper2in15B::wait_until_idle_() {
   if (this->busy_pin_ == nullptr) {
-    delay(20000);
+    delay(25000);
     return;
   }
   uint32_t start = millis();
   while (this->busy_pin_->digital_read() == true) {
-    if (millis() - start > 30000) {
-      ESP_LOGW(TAG, "BUSY timeout 30s");
+    if (millis() - start > 40000) {
+      ESP_LOGW(TAG, "BUSY timeout 40s");
       break;
     }
     delay(50);
@@ -50,19 +49,18 @@ void WaveshareEPaper2in15B::hardware_reset_() {
 void WaveshareEPaper2in15B::set_ram_area_() {
   this->send_command_(SSD1680_SET_RAM_X);
   this->send_data_(0x00);
-  this->send_data_(0x13);  // (160/8)-1 = 19
+  this->send_data_(0x13);
 
   this->send_command_(SSD1680_SET_RAM_Y);
   this->send_data_(0x00);
   this->send_data_(0x00);
-  this->send_data_(0x27);  // 295 lo
-  this->send_data_(0x01);  // 295 hi
+  this->send_data_(0x27);
+  this->send_data_(0x01);
 }
 
 void WaveshareEPaper2in15B::set_ram_counter_() {
   this->send_command_(SSD1680_SET_RAM_X_COUNTER);
   this->send_data_(0x00);
-
   this->send_command_(SSD1680_SET_RAM_Y_COUNTER);
   this->send_data_(0x00);
   this->send_data_(0x00);
@@ -77,33 +75,29 @@ void WaveshareEPaper2in15B::initialize_display_() {
   this->send_command_(SSD1680_SW_RESET);
   this->wait_until_idle_();
 
-  // Driver Output: 296 gate lines
   this->send_command_(SSD1680_DRIVER_OUTPUT);
   this->send_data_(0x27);
   this->send_data_(0x01);
   this->send_data_(0x00);
 
-  // Data Entry Mode: X-inc, Y-inc
   this->send_command_(SSD1680_DATA_ENTRY_MODE);
   this->send_data_(0x03);
 
   this->set_ram_area_();
 
-  // Border waveform
   this->send_command_(SSD1680_BORDER_WAVEFORM);
   this->send_data_(0x05);
 
-  // Internal temperature sensor
   this->send_command_(SSD1680_TEMP_SENSOR);
   this->send_data_(0x80);
 
-  // Display Update Control 1:
-  // Byte 0 = 0x00: BW RAM normal (0=black, 1=white)
-  // Byte 1 = 0x00: RED RAM normal, no inversion (0=red, 1=white)
-  // Previously 0x80 was causing red inversion
+  // Display Update Control 1
+  // Byte 0: BW RAM source. 0x00 = normal, 0x04 = inverted
+  // Byte 1: RED RAM source. 0x00 = normal, 0x80 = inverted
+  // Both planes are appearing inverted, so invert both at the source
   this->send_command_(SSD1680_DISPLAY_UPDATE_CTRL1);
-  this->send_data_(0x00);
-  this->send_data_(0x00);
+  this->send_data_(0x04);  // invert BW RAM
+  this->send_data_(0x00);  // red RAM normal
 
   this->set_ram_counter_();
   this->wait_until_idle_();

@@ -8,6 +8,7 @@ from esphome.const import (
     CONF_ID,
     CONF_LAMBDA,
     CONF_RESET_PIN,
+    CONF_ROTATION,
 )
 
 DEPENDENCIES = ["spi"]
@@ -29,6 +30,15 @@ CONFIG_SCHEMA = (
             cv.Required(CONF_DC_PIN): pins.gpio_output_pin_schema,
             cv.Optional(CONF_RESET_PIN): pins.gpio_output_pin_schema,
             cv.Optional(CONF_BUSY_PIN): pins.gpio_input_pin_schema,
+            cv.Optional(CONF_ROTATION, default="0°"): cv.enum(
+                {
+                    "0°": display.DISPLAY_ROTATIONS[0],
+                    "90°": display.DISPLAY_ROTATIONS[90],
+                    "180°": display.DISPLAY_ROTATIONS[180],
+                    "270°": display.DISPLAY_ROTATIONS[270],
+                },
+                upper=False,
+            ),
         }
     )
     .extend(cv.polling_component_schema("300s"))
@@ -38,7 +48,6 @@ CONFIG_SCHEMA = (
 
 async def to_code(config):
     var = cg.new_Pvariable(config[CONF_ID])
-    # register_display internally calls register_component — do NOT call it separately
     await display.register_display(var, config)
     await spi.register_spi_device(var, config)
 

@@ -91,13 +91,10 @@ void WaveshareEPaper2in15B::initialize_display_() {
   this->send_command_(SSD1680_TEMP_SENSOR);
   this->send_data_(0x80);
 
-  // Display Update Control 1
-  // Byte 0: BW RAM source. 0x00 = normal, 0x04 = inverted
-  // Byte 1: RED RAM source. 0x00 = normal, 0x80 = inverted
-  // Both planes are appearing inverted, so invert both at the source
+  // Display Update Control 1: both RAMs normal, no inversion
   this->send_command_(SSD1680_DISPLAY_UPDATE_CTRL1);
-  this->send_data_(0x04);  // invert BW RAM
-  this->send_data_(0x00);  // red RAM normal
+  this->send_data_(0x00);
+  this->send_data_(0x00);
 
   this->set_ram_counter_();
   this->wait_until_idle_();
@@ -138,15 +135,23 @@ void WaveshareEPaper2in15B::draw_absolute_pixel_internal(int x, int y, Color col
   bool is_red   = (color.r > 200 && color.g < 100 && color.b < 100);
   bool is_black = (!is_red && color.r < 64 && color.g < 64 && color.b < 64);
 
+  // On this controller the RAM planes are swapped vs standard SSD1680:
+  // - What we call "bw_buffer_" must go to RED RAM (0x26)
+  // - What we call "red_buffer_" must go to BW RAM (0x24)
+  // Pixel encoding (for the swapped mapping):
+  //   black pixel → bw_buffer 0, red_buffer 1
+  //   red pixel   → bw_buffer 1, red_buffer 0
+  //   white pixel → bw_buffer 1, red_buffer 1
+
   if (is_red) {
-    this->red_buffer_[byte_idx] &= ~bit_mask;  // RED RAM 0 = red
-    this->bw_buffer_[byte_idx]  |=  bit_mask;  // BW RAM  1 = white
+    this->bw_buffer_[byte_idx]  |=  bit_mask;  // 1
+    this->red_buffer_[byte_idx] &= ~bit_mask;  // 0
   } else if (is_black) {
-    this->bw_buffer_[byte_idx]  &= ~bit_mask;  // BW RAM  0 = black
-    this->red_buffer_[byte_idx] |=  bit_mask;  // RED RAM 1 = white
+    this->bw_buffer_[byte_idx]  &= ~bit_mask;  // 0
+    this->red_buffer_[byte_idx] |=  bit_mask;  // 1
   } else {
-    this->bw_buffer_[byte_idx]  |=  bit_mask;  // white
-    this->red_buffer_[byte_idx] |=  bit_mask;
+    this->bw_buffer_[byte_idx]  |=  bit_mask;  // 1
+    this->red_buffer_[byte_idx] |=  bit_mask;  // 1
   }
 }
 
@@ -169,9 +174,9 @@ void WaveshareEPaper2in15B::update() {
   }
   ESP_LOGI(TAG, "Frame: %u black, %u red pixels", black_px, red_px);
 
-  // Write BW RAM
+  // Send bw_buffer_ to RED RAM (0x26) — swapped
   this->set_ram_counter_();
-  this->send_command_(SSD1680_WRITE_RAM_BW);
+  this->send_command_(SSD1680_WRITE_RAM_RED);
   this->dc_pin_->digital_write(true);
   this->enable();
   for (uint32_t i = 0; i < EPD_BUFFER_SIZE; i++) {
@@ -180,9 +185,9 @@ void WaveshareEPaper2in15B::update() {
   }
   this->disable();
 
-  // Write RED RAM
+  // Send red_buffer_ to BW RAM (0x24) — swapped
   this->set_ram_counter_();
-  this->send_command_(SSD1680_WRITE_RAM_RED);
+  this->send_command_(SSD1680_WRITE_RAM_BW);
   this->dc_pin_->digital_write(true);
   this->enable();
   for (uint32_t i = 0; i < EPD_BUFFER_SIZE; i++) {

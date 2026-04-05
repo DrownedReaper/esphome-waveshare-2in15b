@@ -22,10 +22,6 @@ void WaveshareEPaper2in15B::send_data_(uint8_t data) {
   this->disable();
 }
 
-// ---------------------------------------------------------------------------
-// Wait for BUSY HIGH (idle). No timeout version for critical steps.
-// ---------------------------------------------------------------------------
-
 void WaveshareEPaper2in15B::wait_busy_high_(uint32_t timeout_ms, const char *label) {
   if (this->busy_pin_ == nullptr) {
     delay(timeout_ms);
@@ -37,26 +33,22 @@ void WaveshareEPaper2in15B::wait_busy_high_(uint32_t timeout_ms, const char *lab
       ESP_LOGW(TAG, "[%s] BUSY still LOW after %ums", label, timeout_ms);
       return;
     }
-    delay(10);
+    delay(5);
     App.feed_wdt();
   }
   ESP_LOGI(TAG, "[%s] BUSY HIGH after %ums", label, millis() - start);
 }
-
-// ---------------------------------------------------------------------------
-// After refresh: wait for BUSY to go LOW (busy) then HIGH (done)
-// ---------------------------------------------------------------------------
 
 void WaveshareEPaper2in15B::wait_until_idle_() {
   if (this->busy_pin_ == nullptr) {
     delay(20000);
     return;
   }
-  // Step 1: wait for LOW (display starts refreshing) — up to 2s
+  // Wait for LOW (refresh started) — up to 2s
   uint32_t start = millis();
   while (this->busy_pin_->digital_read()) {
     if (millis() - start > 2000) {
-      ESP_LOGW(TAG, "BUSY never went LOW after refresh cmd — display may not have accepted it");
+      ESP_LOGW(TAG, "BUSY never went LOW after refresh cmd");
       return;
     }
     delay(10);
@@ -64,38 +56,30 @@ void WaveshareEPaper2in15B::wait_until_idle_() {
   }
   ESP_LOGI(TAG, "BUSY went LOW (refreshing) after %ums", millis() - start);
 
-  // Step 2: wait for HIGH (refresh complete) — up to 30s
+  // Wait for HIGH (refresh done) — up to 30s
   start = millis();
   while (!this->busy_pin_->digital_read()) {
     if (millis() - start > 30000) {
-      ESP_LOGW(TAG, "BUSY stuck LOW 30s — refresh may have failed");
+      ESP_LOGW(TAG, "BUSY stuck LOW 30s");
       return;
     }
     delay(50);
     App.feed_wdt();
   }
-  ESP_LOGI(TAG, "BUSY HIGH (refresh done) after %ums", millis() - start);
+  ESP_LOGI(TAG, "BUSY HIGH (done) after %ums", millis() - start);
 }
-
-// ---------------------------------------------------------------------------
-// Hardware reset — hold LOW longer to fully reset the controller
-// ---------------------------------------------------------------------------
 
 void WaveshareEPaper2in15B::hardware_reset_() {
   if (this->reset_pin_ == nullptr) return;
-
+  // CRITICAL: keep RST LOW for only 2ms.
+  // This HAT+ has a power-off switch that cuts panel power if RST is
+  // held LOW too long, causing a very slow recovery (BUSY stuck LOW).
   this->reset_pin_->digital_write(true);  delay(20);
-  this->reset_pin_->digital_write(false); delay(20);   // hold LOW longer
-  this->reset_pin_->digital_write(true);
-
-  // Now wait up to 10s for BUSY to go HIGH (display ready after reset)
-  ESP_LOGI(TAG, "Waiting for BUSY HIGH after reset...");
-  this->wait_busy_high_(10000, "post-reset");
+  this->reset_pin_->digital_write(false); delay(2);   // 2ms only!
+  this->reset_pin_->digital_write(true);  delay(20);
+  ESP_LOGI(TAG, "RST pulse done (2ms). BUSY=%s",
+           this->busy_pin_ ? (this->busy_pin_->digital_read() ? "HIGH" : "LOW") : "no pin");
 }
-
-// ---------------------------------------------------------------------------
-// Init sequence
-// ---------------------------------------------------------------------------
 
 void WaveshareEPaper2in15B::initialize_display_() {
   ESP_LOGI(TAG, "======= INIT START =======");
@@ -103,6 +87,8 @@ void WaveshareEPaper2in15B::initialize_display_() {
            this->busy_pin_ ? (this->busy_pin_->digital_read() ? "HIGH" : "LOW") : "no pin");
 
   this->hardware_reset_();
+  // Short wait after 2ms reset — display should stay powered
+  this->wait_busy_high_(3000, "post-reset");
 
   ESP_LOGI(TAG, "CMD 0x06 booster soft start");
   this->send_command_(CMD_BOOSTER_SOFT_START);
@@ -112,7 +98,6 @@ void WaveshareEPaper2in15B::initialize_display_() {
 
   ESP_LOGI(TAG, "CMD 0x04 power on");
   this->send_command_(CMD_POWER_ON);
-  // Wait up to 5s for power on to complete
   this->wait_busy_high_(5000, "post-power-on");
 
   ESP_LOGI(TAG, "CMD 0x00 panel setting");
@@ -217,9 +202,12 @@ void WaveshareEPaper2in15B::update() {
   }
   this->disable();
 
-  ESP_LOGI(TAG, "CMD 0x12 display refresh");
+  ESP_LOGI(TAG, "CMD 0x12 display refresh. BUSY=%s",
+           this->busy_pin_ ? (this->busy_pin_->digital_read() ? "HIGH" : "LOW") : "no pin");
   this->send_command_(CMD_DISPLAY_REFRESH);
   delay(100);
+  ESP_LOGI(TAG, "BUSY 100ms after refresh: %s",
+           this->busy_pin_ ? (this->busy_pin_->digital_read() ? "HIGH" : "LOW") : "no pin");
 
   this->wait_until_idle_();
   ESP_LOGI(TAG, "======= Refresh complete =======");

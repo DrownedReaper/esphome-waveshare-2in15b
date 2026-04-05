@@ -9,38 +9,44 @@ namespace waveshare_2in15b {
 static const char *const TAG = "waveshare_2in15b";
 
 // ---------------------------------------------------------------------------
-// SPI helpers
+// SPI helpers — use write_byte (no MISO needed for e-paper)
 // ---------------------------------------------------------------------------
 
 void WaveshareEPaper2in15B::send_command_(uint8_t cmd) {
-  this->dc_pin_->digital_write(false);
+  this->dc_pin_->digital_write(false);  // DC low = command
   this->enable();
-  this->transfer_byte(cmd);
+  this->write_byte(cmd);               // write_byte, not transfer_byte
   this->disable();
 }
 
 void WaveshareEPaper2in15B::send_data_(uint8_t data) {
-  this->dc_pin_->digital_write(true);
+  this->dc_pin_->digital_write(true);   // DC high = data
   this->enable();
-  this->transfer_byte(data);
+  this->write_byte(data);              // write_byte, not transfer_byte
   this->disable();
 }
 
+// ---------------------------------------------------------------------------
+// BUSY pin handling
+// BUSY is active-LOW on Waveshare 2.15" B: LOW = busy, HIGH = idle
+// ---------------------------------------------------------------------------
+
 void WaveshareEPaper2in15B::wait_until_idle_() {
   if (this->busy_pin_ == nullptr) {
-    delay(500);
+    ESP_LOGD(TAG, "No BUSY pin — waiting 2000ms");
+    delay(2000);
     return;
   }
   uint32_t start = millis();
-  // BUSY is active-LOW: 0 = busy, 1 = idle
   while (this->busy_pin_->digital_read() == false) {
-    if (millis() - start > 10000) {
-      ESP_LOGE(TAG, "Timeout: BUSY pin never went HIGH");
+    if (millis() - start > 15000) {
+      ESP_LOGW(TAG, "BUSY timeout after 15s — continuing anyway");
       break;
     }
-    delay(10);
+    delay(20);
     App.feed_wdt();
   }
+  ESP_LOGD(TAG, "BUSY cleared after %ums", millis() - start);
 }
 
 void WaveshareEPaper2in15B::hardware_reset_() {
@@ -55,7 +61,7 @@ void WaveshareEPaper2in15B::hardware_reset_() {
 }
 
 // ---------------------------------------------------------------------------
-// Init sequence (from Waveshare EPD_2in15b C/Python demo)
+// Init sequence (Waveshare EPD_2in15b reference demo)
 // ---------------------------------------------------------------------------
 
 void WaveshareEPaper2in15B::initialize_display_() {
@@ -70,16 +76,15 @@ void WaveshareEPaper2in15B::initialize_display_() {
   this->send_command_(CMD_POWER_ON);
   this->wait_until_idle_();
 
-  // Panel setting: KWR mode
   this->send_command_(CMD_PANEL_SETTING);
   this->send_data_(0x0F);
 
-  // Resolution: 160 wide, 296 tall
+  // Resolution: width=160 (0x00A0), height=296 (0x0128)
   this->send_command_(CMD_RESOLUTION_SETTING);
-  this->send_data_(0x00);  // HRES[8]   = 0
-  this->send_data_(0xA0);  // HRES[7:0] = 160
-  this->send_data_(0x01);  // VRES[8]   = 1
-  this->send_data_(0x28);  // VRES[7:0] = 40  → 256+40 = 296
+  this->send_data_(0x00);
+  this->send_data_(0xA0);
+  this->send_data_(0x01);
+  this->send_data_(0x28);
 
   this->send_command_(CMD_VCOM_DATA_INTERVAL);
   this->send_data_(0x11);
@@ -105,7 +110,6 @@ void WaveshareEPaper2in15B::setup() {
 
   this->spi_setup();
 
-  // Start with all-white buffers
   memset(this->bw_buffer_,  0xFF, EPD_BUFFER_SIZE);
   memset(this->red_buffer_, 0xFF, EPD_BUFFER_SIZE);
 
@@ -122,7 +126,7 @@ void WaveshareEPaper2in15B::dump_config() {
 }
 
 // ---------------------------------------------------------------------------
-// Pixel writing — called by DisplayBuffer::draw_pixel_at()
+// Pixel writing
 // ---------------------------------------------------------------------------
 
 void WaveshareEPaper2in15B::draw_absolute_pixel_internal(int x, int y, Color color) {
@@ -136,13 +140,13 @@ void WaveshareEPaper2in15B::draw_absolute_pixel_internal(int x, int y, Color col
   bool is_black = (!is_red && color.r < 64 && color.g < 64 && color.b < 64);
 
   if (is_red) {
-    this->red_buffer_[byte_idx] &= ~bit_mask;  // 0 = red
-    this->bw_buffer_[byte_idx]  |=  bit_mask;  // 1 = white (not black)
+    this->red_buffer_[byte_idx] &= ~bit_mask;
+    this->bw_buffer_[byte_idx]  |=  bit_mask;
   } else if (is_black) {
-    this->bw_buffer_[byte_idx]  &= ~bit_mask;  // 0 = black
-    this->red_buffer_[byte_idx] |=  bit_mask;  // 1 = white (not red)
+    this->bw_buffer_[byte_idx]  &= ~bit_mask;
+    this->red_buffer_[byte_idx] |=  bit_mask;
   } else {
-    this->bw_buffer_[byte_idx]  |=  bit_mask;  // white
+    this->bw_buffer_[byte_idx]  |=  bit_mask;
     this->red_buffer_[byte_idx] |=  bit_mask;
   }
 }
@@ -152,28 +156,35 @@ void WaveshareEPaper2in15B::draw_absolute_pixel_internal(int x, int y, Color col
 // ---------------------------------------------------------------------------
 
 void WaveshareEPaper2in15B::update() {
-  // Reset buffers to white before each render pass
   memset(this->bw_buffer_,  0xFF, EPD_BUFFER_SIZE);
   memset(this->red_buffer_, 0xFF, EPD_BUFFER_SIZE);
 
-  // Run the ESPHome rendering lambda
   if (this->writer_.has_value())
     (*this->writer_)(*this);
 
-  ESP_LOGD(TAG, "Sending frame buffers to display...");
+  ESP_LOGD(TAG, "Sending frame buffers...");
 
+  // Black/White plane
   this->send_command_(CMD_DATA_START_TX_BW);
+  this->dc_pin_->digital_write(true);
+  this->enable();
   for (uint32_t i = 0; i < EPD_BUFFER_SIZE; i++) {
-    this->send_data_(this->bw_buffer_[i]);
+    this->write_byte(this->bw_buffer_[i]);
     if (i % 512 == 0) App.feed_wdt();
   }
+  this->disable();
 
+  // Red plane
   this->send_command_(CMD_DATA_START_TX_RED);
+  this->dc_pin_->digital_write(true);
+  this->enable();
   for (uint32_t i = 0; i < EPD_BUFFER_SIZE; i++) {
-    this->send_data_(this->red_buffer_[i]);
+    this->write_byte(this->red_buffer_[i]);
     if (i % 512 == 0) App.feed_wdt();
   }
+  this->disable();
 
+  // Trigger refresh
   this->send_command_(CMD_DISPLAY_REFRESH);
   delay(100);
   this->wait_until_idle_();

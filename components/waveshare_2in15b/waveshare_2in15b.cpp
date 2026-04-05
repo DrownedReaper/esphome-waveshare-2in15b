@@ -85,8 +85,19 @@ void WaveshareEPaper2in15B::initialize_display_() {
 
   this->set_ram_area_();
 
+  // Border waveform: 0x80 = VSS level (white) for border pixels
   this->send_command_(SSD1680_BORDER_WAVEFORM);
-  this->send_data_(0x01);  // follow BW waveform = white border
+  this->send_data_(0x80);
+
+  // VCOM voltage
+  this->send_command_(0x2C);
+  this->send_data_(0x36);
+
+  // Gate Scan Start Position: skip 4 dummy lines at top
+  // Try 0x04 to shift scan start past the red border bar
+  this->send_command_(0x0F);
+  this->send_data_(0x04);
+  this->send_data_(0x00);
 
   this->send_command_(SSD1680_TEMP_SENSOR);
   this->send_data_(0x80);

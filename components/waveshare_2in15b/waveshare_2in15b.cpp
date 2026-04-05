@@ -91,7 +91,7 @@ void WaveshareEPaper2in15B::initialize_display_() {
   this->send_command_(SSD1680_TEMP_SENSOR);
   this->send_data_(0x80);
 
-  // Display Update Control 1: both RAMs normal, no inversion
+  // Display Update Control 1: no inversion at register level
   this->send_command_(SSD1680_DISPLAY_UPDATE_CTRL1);
   this->send_data_(0x00);
   this->send_data_(0x00);
@@ -112,8 +112,10 @@ void WaveshareEPaper2in15B::setup() {
   if (this->busy_pin_ != nullptr)
     this->busy_pin_->setup();
   this->spi_setup();
+  // BW RAM:  0xFF = all white (1=white, 0=black)
+  // RED RAM: 0x00 = all white (0=white, 1=red — inverted polarity on this controller)
   memset(this->bw_buffer_,  0xFF, EPD_BUFFER_SIZE);
-  memset(this->red_buffer_, 0xFF, EPD_BUFFER_SIZE);
+  memset(this->red_buffer_, 0x00, EPD_BUFFER_SIZE);
 }
 
 void WaveshareEPaper2in15B::dump_config() {
@@ -135,23 +137,23 @@ void WaveshareEPaper2in15B::draw_absolute_pixel_internal(int x, int y, Color col
   bool is_red   = (color.r > 200 && color.g < 100 && color.b < 100);
   bool is_black = (!is_red && color.r < 64 && color.g < 64 && color.b < 64);
 
-  // On this controller the RAM planes are swapped vs standard SSD1680:
-  // - What we call "bw_buffer_" must go to RED RAM (0x26)
-  // - What we call "red_buffer_" must go to BW RAM (0x24)
-  // Pixel encoding (for the swapped mapping):
-  //   black pixel → bw_buffer 0, red_buffer 1
-  //   red pixel   → bw_buffer 1, red_buffer 0
-  //   white pixel → bw_buffer 1, red_buffer 1
+  // BW RAM:  1=white, 0=black (standard)
+  // RED RAM: 0=white, 1=red   (inverted on this controller)
+  //
+  // white: BW=1, RED=0  → white BW, transparent RED → white
+  // black: BW=0, RED=0  → black BW, transparent RED → black
+  // red:   BW=1, RED=1  → white BW, red RED → red (RED takes priority)
 
   if (is_red) {
-    this->bw_buffer_[byte_idx]  |=  bit_mask;  // 1
-    this->red_buffer_[byte_idx] &= ~bit_mask;  // 0
+    this->bw_buffer_[byte_idx]  |=  bit_mask;  // BW=1 (white, so red shows through)
+    this->red_buffer_[byte_idx] |=  bit_mask;  // RED=1 (red)
   } else if (is_black) {
-    this->bw_buffer_[byte_idx]  &= ~bit_mask;  // 0
-    this->red_buffer_[byte_idx] |=  bit_mask;  // 1
+    this->bw_buffer_[byte_idx]  &= ~bit_mask;  // BW=0 (black)
+    this->red_buffer_[byte_idx] &= ~bit_mask;  // RED=0 (transparent)
   } else {
-    this->bw_buffer_[byte_idx]  |=  bit_mask;  // 1
-    this->red_buffer_[byte_idx] |=  bit_mask;  // 1
+    // white
+    this->bw_buffer_[byte_idx]  |=  bit_mask;  // BW=1 (white)
+    this->red_buffer_[byte_idx] &= ~bit_mask;  // RED=0 (transparent)
   }
 }
 
@@ -161,8 +163,9 @@ void WaveshareEPaper2in15B::update() {
     this->initialize_display_();
   }
 
-  memset(this->bw_buffer_,  0xFF, EPD_BUFFER_SIZE);
-  memset(this->red_buffer_, 0xFF, EPD_BUFFER_SIZE);
+  // Reset buffers to white state
+  memset(this->bw_buffer_,  0xFF, EPD_BUFFER_SIZE);  // all white
+  memset(this->red_buffer_, 0x00, EPD_BUFFER_SIZE);  // all transparent (no red)
 
   if (this->writer_.has_value())
     (*this->writer_)(*this);
@@ -170,13 +173,13 @@ void WaveshareEPaper2in15B::update() {
   uint32_t black_px = 0, red_px = 0;
   for (uint32_t i = 0; i < EPD_BUFFER_SIZE; i++) {
     black_px += __builtin_popcount(~this->bw_buffer_[i]  & 0xFF);
-    red_px   += __builtin_popcount(~this->red_buffer_[i] & 0xFF);
+    red_px   += __builtin_popcount( this->red_buffer_[i] & 0xFF);
   }
   ESP_LOGI(TAG, "Frame: %u black, %u red pixels", black_px, red_px);
 
-  // Send bw_buffer_ to RED RAM (0x26) — swapped
+  // Write BW RAM (0x24): 1=white, 0=black
   this->set_ram_counter_();
-  this->send_command_(SSD1680_WRITE_RAM_RED);
+  this->send_command_(SSD1680_WRITE_RAM_BW);
   this->dc_pin_->digital_write(true);
   this->enable();
   for (uint32_t i = 0; i < EPD_BUFFER_SIZE; i++) {
@@ -185,9 +188,9 @@ void WaveshareEPaper2in15B::update() {
   }
   this->disable();
 
-  // Send red_buffer_ to BW RAM (0x24) — swapped
+  // Write RED RAM (0x26): 0=transparent, 1=red
   this->set_ram_counter_();
-  this->send_command_(SSD1680_WRITE_RAM_BW);
+  this->send_command_(SSD1680_WRITE_RAM_RED);
   this->dc_pin_->digital_write(true);
   this->enable();
   for (uint32_t i = 0; i < EPD_BUFFER_SIZE; i++) {

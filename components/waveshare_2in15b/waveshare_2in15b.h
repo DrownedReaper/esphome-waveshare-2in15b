@@ -1,62 +1,71 @@
 #pragma once
 
+#include "esphome/core/component.h"
 #include "esphome/components/display/display_buffer.h"
 #include "esphome/components/spi/spi.h"
-#include "esphome/core/gpio.h"
-#include "esphome/core/log.h"
 
 namespace esphome {
-namespace waveshare {
+namespace waveshare_2in15b {
 
-class Waveshare2in15B
-  : public display::DisplayBuffer,
-    public spi::SPIDevice<
-        spi::SPIBitOrder::BIT_ORDER_MSB_FIRST,
-        spi::SPIClockPolarity::CLOCK_POLARITY_LOW,
-        spi::SPIClockPhase::CLOCK_PHASE_LEADING,
-        spi::SPIDataRate::DATA_RATE_4MHZ> {
+// Display resolution
+static const uint16_t EPD_WIDTH  = 160;
+static const uint16_t EPD_HEIGHT = 296;
 
+// Command register addresses (from Waveshare EPD_2in15b datasheet)
+static const uint8_t CMD_PANEL_SETTING          = 0x00;
+static const uint8_t CMD_POWER_SETTING          = 0x01;
+static const uint8_t CMD_POWER_OFF             = 0x02;
+static const uint8_t CMD_POWER_ON              = 0x04;
+static const uint8_t CMD_BOOSTER_SOFT_START    = 0x06;
+static const uint8_t CMD_DISPLAY_REFRESH       = 0x12;
+static const uint8_t CMD_DATA_START_TX_BW      = 0x10;  // Black/White channel
+static const uint8_t CMD_DATA_START_TX_RED     = 0x13;  // Red channel
+static const uint8_t CMD_VCOM_DATA_INTERVAL    = 0x50;
+static const uint8_t CMD_TCON_SETTING          = 0x60;
+static const uint8_t CMD_RESOLUTION_SETTING    = 0x61;
+static const uint8_t CMD_FLASH_MODE            = 0xE3;
+static const uint8_t CMD_DEEP_SLEEP            = 0x07;
+
+class WaveshareEPaper2in15B : public display::DisplayBuffer,
+                               public spi::SPIDevice<spi::BIT_ORDER_MSB_FIRST,
+                                                     spi::CLOCK_POLARITY_LOW,
+                                                     spi::CLOCK_PHASE_LEADING,
+                                                     spi::DATA_RATE_2MHZ> {
  public:
+  void set_dc_pin(GPIOPin *dc_pin) { dc_pin_ = dc_pin; }
+  void set_reset_pin(GPIOPin *reset_pin) { reset_pin_ = reset_pin; }
+  void set_busy_pin(GPIOPin *busy_pin) { busy_pin_ = busy_pin; }
+
   void setup() override;
+  void dump_config() override;
   void update() override;
-  void loop() override;
-  void fill(Color color) override;
 
-  display::DisplayType get_display_type() override;
+  display::DisplayType get_display_type() override { return display::DisplayType::DISPLAY_TYPE_COLOR; }
 
-  void set_dc_pin(GPIOPin *pin) { dc_pin_ = pin; }
-  void set_reset_pin(GPIOPin *pin) { reset_pin_ = pin; }
-  void set_busy_pin(GPIOPin *pin) { busy_pin_ = pin; }
-  void set_power_pin(GPIOPin *pin) { power_pin_ = pin; }
+  int get_width_internal() override { return EPD_WIDTH; }
+  int get_height_internal() override { return EPD_HEIGHT; }
 
  protected:
-  bool initialized_{false};
-  bool refresh_in_progress_{false};
-  uint8_t init_step_{0};
-
-  void init_display_step_();
-
-  int get_width_internal() override { return 296; }
-  int get_height_internal() override { return 160; }
-
   void draw_absolute_pixel_internal(int x, int y, Color color) override;
 
-  // --- internal helpers (must be declared here) ---
-  void send_command(uint8_t cmd);
-  void send_data(uint8_t data);
+  void initialize_display_();
+  void send_command_(uint8_t cmd);
+  void send_data_(uint8_t data);
   void wait_until_idle_();
-  void load_lut_();
+  void hardware_reset_();
+  void deep_sleep_();
 
-  // GPIOs
   GPIOPin *dc_pin_{nullptr};
   GPIOPin *reset_pin_{nullptr};
   GPIOPin *busy_pin_{nullptr};
-  GPIOPin *power_pin_{nullptr};
 
-  // Framebuffers
-  uint8_t buffer_black_[296 * 160 / 8];
-  uint8_t buffer_red_[296 * 160 / 8];
+  // Two buffers: black/white and red/white
+  // Each bit represents one pixel. 1 = white, 0 = black or red.
+  // Buffer size = (WIDTH * HEIGHT) / 8 bytes
+  static const uint32_t BUFFER_SIZE = (EPD_WIDTH * EPD_HEIGHT) / 8;
+  uint8_t bw_buffer_[BUFFER_SIZE];   // Black/White plane
+  uint8_t red_buffer_[BUFFER_SIZE];  // Red plane
 };
 
-}  // namespace waveshare
+}  // namespace waveshare_2in15b
 }  // namespace esphome

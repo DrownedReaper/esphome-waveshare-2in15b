@@ -85,13 +85,9 @@ void WaveshareEPaper2in15B::initialize_display_() {
 
   this->set_ram_area_();
 
-  // Border waveform: 0x00 = VSS (white)
+  // Border waveform: 0x05
   this->send_command_(SSD1680_BORDER_WAVEFORM);
-  this->send_data_(0x00);
-
-  // VCOM voltage
-  this->send_command_(0x2C);
-  this->send_data_(0x36);
+  this->send_data_(0x05);
 
   this->send_command_(SSD1680_TEMP_SENSOR);
   this->send_data_(0x80);
@@ -103,24 +99,6 @@ void WaveshareEPaper2in15B::initialize_display_() {
 
   this->set_ram_counter_();
   this->wait_until_idle_();
-
-  // Explicitly clear both RAMs to white to flush any power-on red default
-  ESP_LOGD(TAG, "Clearing RAM to white...");
-  this->set_ram_counter_();
-  this->send_command_(SSD1680_WRITE_RAM_BW);
-  this->dc_pin_->digital_write(true);
-  this->enable();
-  for (uint32_t i = 0; i < EPD_BUFFER_SIZE; i++)
-    this->write_byte(0xFF);
-  this->disable();
-
-  this->set_ram_counter_();
-  this->send_command_(SSD1680_WRITE_RAM_RED);
-  this->dc_pin_->digital_write(true);
-  this->enable();
-  for (uint32_t i = 0; i < EPD_BUFFER_SIZE; i++)
-    this->write_byte(0x00);
-  this->disable();
 
   this->initialized_ = true;
   ESP_LOGI(TAG, "======= SSD1680 INIT DONE =======");

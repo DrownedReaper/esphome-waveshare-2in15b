@@ -7,8 +7,9 @@
 namespace esphome {
 namespace waveshare_2in15b {
 
-static const uint16_t EPD_WIDTH  = 160;
-static const uint16_t EPD_HEIGHT = 296;
+static const uint16_t EPD_WIDTH    = 160;
+static const uint16_t EPD_HEIGHT   = 296;
+static const uint8_t  EPD_Y_OFFSET = 5;   // skip dummy gate lines (red bar)
 
 // SSD1680 command set (completely different from UC8151/UC8253)
 static const uint8_t SSD1680_SW_RESET            = 0x12;

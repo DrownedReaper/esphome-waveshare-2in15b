@@ -49,20 +49,22 @@ void WaveshareEPaper2in15B::hardware_reset_() {
 void WaveshareEPaper2in15B::set_ram_area_() {
   this->send_command_(SSD1680_SET_RAM_X);
   this->send_data_(0x00);
-  this->send_data_(0x13);
+  this->send_data_(0x13);  // X: 0 to 19 (160px)
 
+  // Y: start at line 5 to skip dummy gate lines that show as red bar
+  // End at 295. Adjust EPD_Y_OFFSET if bar is still visible.
   this->send_command_(SSD1680_SET_RAM_Y);
-  this->send_data_(0x00);
-  this->send_data_(0x00);
-  this->send_data_(0x27);
-  this->send_data_(0x01);
+  this->send_data_(EPD_Y_OFFSET);   // Y start lo
+  this->send_data_(0x00);           // Y start hi
+  this->send_data_(0x27);           // Y end lo (295)
+  this->send_data_(0x01);           // Y end hi
 }
 
 void WaveshareEPaper2in15B::set_ram_counter_() {
   this->send_command_(SSD1680_SET_RAM_X_COUNTER);
   this->send_data_(0x00);
   this->send_command_(SSD1680_SET_RAM_Y_COUNTER);
-  this->send_data_(0x00);
+  this->send_data_(EPD_Y_OFFSET);  // start at same Y offset
   this->send_data_(0x00);
 }
 

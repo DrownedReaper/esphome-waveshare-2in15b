@@ -132,12 +132,10 @@ void WaveshareEPaper2in15B::dump_config() {
 }
 
 void WaveshareEPaper2in15B::draw_absolute_pixel_internal(int x, int y, Color color) {
-  // Mirror the physical X axis so the VBD border (at physical X=0..4)
-  // appears at the BOTTOM of the screen after rotation:90, not the top.
-  // physical_x=0 → screen bottom, physical_x=159 → screen top.
-  // EPD_X_OFFSET then pushes content away from the bottom bar.
+  // Physical X offset: the VBD border occupies ~5 physical pixel rows at the
+  // top of the screen (after rotation:90). Shift all content past them.
   static const int EPD_X_OFFSET = 5;
-  int px = (EPD_WIDTH - 1 - x) - EPD_X_OFFSET;
+  int px = x + EPD_X_OFFSET;
 
   if (px < 0 || px >= EPD_WIDTH || y < 0 || y >= EPD_HEIGHT)
     return;

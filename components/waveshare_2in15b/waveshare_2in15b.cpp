@@ -51,20 +51,18 @@ void WaveshareEPaper2in15B::set_ram_area_() {
   this->send_data_(0x00);
   this->send_data_(0x13);  // X: 0 to 19 (160px)
 
-  // Y: start at line 5 to skip dummy gate lines that show as red bar
-  // End at 295. Adjust EPD_Y_OFFSET if bar is still visible.
   this->send_command_(SSD1680_SET_RAM_Y);
-  this->send_data_(EPD_Y_OFFSET);   // Y start lo
-  this->send_data_(0x00);           // Y start hi
-  this->send_data_(0x27);           // Y end lo (295)
-  this->send_data_(0x01);           // Y end hi
+  this->send_data_(0x00);
+  this->send_data_(0x00);
+  this->send_data_(0x27);
+  this->send_data_(0x01);
 }
 
 void WaveshareEPaper2in15B::set_ram_counter_() {
   this->send_command_(SSD1680_SET_RAM_X_COUNTER);
   this->send_data_(0x00);
   this->send_command_(SSD1680_SET_RAM_Y_COUNTER);
-  this->send_data_(EPD_Y_OFFSET);  // start at same Y offset
+  this->send_data_(0x00);
   this->send_data_(0x00);
 }
 
@@ -131,11 +129,17 @@ void WaveshareEPaper2in15B::dump_config() {
 }
 
 void WaveshareEPaper2in15B::draw_absolute_pixel_internal(int x, int y, Color color) {
-  if (x < 0 || x >= EPD_WIDTH || y < 0 || y >= EPD_HEIGHT)
+  // Apply physical X offset to skip dummy pixel rows that appear as red bar
+  // at the top of the screen after rotation:90. Adjust EPD_X_OFFSET to match
+  // the exact bar height (try 4, 5, or 6).
+  static const int EPD_X_OFFSET = 5;
+  int px = x + EPD_X_OFFSET;
+
+  if (px < 0 || px >= EPD_WIDTH || y < 0 || y >= EPD_HEIGHT)
     return;
 
-  uint32_t byte_idx = (x + y * EPD_WIDTH) / 8;
-  uint8_t  bit_mask = 0x80 >> (x % 8);
+  uint32_t byte_idx = (px + y * EPD_WIDTH) / 8;
+  uint8_t  bit_mask = 0x80 >> (px % 8);
 
   bool is_red   = (color.r > 200 && color.g < 100 && color.b < 100);
   bool is_black = (!is_red && color.r < 64 && color.g < 64 && color.b < 64);

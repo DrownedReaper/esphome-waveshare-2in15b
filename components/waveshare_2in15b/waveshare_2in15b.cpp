@@ -86,12 +86,11 @@ void WaveshareEPaper2in15B::initialize_display_() {
   this->set_ram_area_();
 
   // Border Waveform Control (0x3C)
-  // This panel has inverted VBD polarity (same as inverted RED RAM polarity):
-  //   VSH1 (0x50) = black border  ← wrong
-  //   VSS  (0x40) = white border  ← correct for this panel
-  // Bits [7:6]=01 Fixed Level, [5:4]=00 VSS (white on this inverted panel)
+  // LUT mode (0x05): bar only at top edge (physical X=0..4), sides clean.
+  // Fixed modes (0x40/0x50): full black border all four sides — worse.
+  // Use LUT mode and mirror X axis to push the bar to the bottom instead.
   this->send_command_(SSD1680_BORDER_WAVEFORM);
-  this->send_data_(0x40);
+  this->send_data_(0x05);
 
   this->send_command_(SSD1680_TEMP_SENSOR);
   this->send_data_(0x80);
@@ -133,10 +132,12 @@ void WaveshareEPaper2in15B::dump_config() {
 }
 
 void WaveshareEPaper2in15B::draw_absolute_pixel_internal(int x, int y, Color color) {
-  // Physical X offset: the VBD border occupies ~5 physical pixel rows at the
-  // top of the screen (after rotation:90). Shift all content past them.
+  // Mirror the physical X axis so the VBD border (at physical X=0..4)
+  // appears at the BOTTOM of the screen after rotation:90, not the top.
+  // physical_x=0 → screen bottom, physical_x=159 → screen top.
+  // EPD_X_OFFSET then pushes content away from the bottom bar.
   static const int EPD_X_OFFSET = 5;
-  int px = x + EPD_X_OFFSET;
+  int px = (EPD_WIDTH - 1 - x) - EPD_X_OFFSET;
 
   if (px < 0 || px >= EPD_WIDTH || y < 0 || y >= EPD_HEIGHT)
     return;

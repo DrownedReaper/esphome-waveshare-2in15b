@@ -80,15 +80,19 @@ void WaveshareEPaper2in15B::initialize_display_() {
   this->send_data_(0x01);
   this->send_data_(0x00);
 
+  // Gate Scan Start Position (0x0F):
+  // The panel has 5 dummy gate rows before the active pixel area.
+  // Starting the scan at line 5 skips them, eliminating the noise bar at top.
+  this->send_command_(0x0F);
+  this->send_data_(0x05);
+  this->send_data_(0x00);
+
   this->send_command_(SSD1680_DATA_ENTRY_MODE);
   this->send_data_(0x03);
 
   this->set_ram_area_();
 
-  // Border Waveform Control (0x3C)
-  // LUT mode (0x05): bar only at top edge (physical X=0..4), sides clean.
-  // Fixed modes (0x40/0x50): full black border all four sides — worse.
-  // Use LUT mode and mirror X axis to push the bar to the bottom instead.
+  // Border waveform: LUT mode, clean single-edge behaviour
   this->send_command_(SSD1680_BORDER_WAVEFORM);
   this->send_data_(0x05);
 
@@ -132,16 +136,11 @@ void WaveshareEPaper2in15B::dump_config() {
 }
 
 void WaveshareEPaper2in15B::draw_absolute_pixel_internal(int x, int y, Color color) {
-  // Physical X offset: the VBD border occupies ~5 physical pixel rows at the
-  // top of the screen (after rotation:90). Shift all content past them.
-  static const int EPD_X_OFFSET = 5;
-  int px = x + EPD_X_OFFSET;
-
-  if (px < 0 || px >= EPD_WIDTH || y < 0 || y >= EPD_HEIGHT)
+  if (x < 0 || x >= EPD_WIDTH || y < 0 || y >= EPD_HEIGHT)
     return;
 
-  uint32_t byte_idx = (px + y * EPD_WIDTH) / 8;
-  uint8_t  bit_mask = 0x80 >> (px % 8);
+  uint32_t byte_idx = (x + y * EPD_WIDTH) / 8;
+  uint8_t  bit_mask = 0x80 >> (x % 8);
 
   bool is_red   = (color.r > 200 && color.g < 100 && color.b < 100);
   bool is_black = (!is_red && color.r < 64 && color.g < 64 && color.b < 64);

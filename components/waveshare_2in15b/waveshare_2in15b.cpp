@@ -135,14 +135,6 @@ void WaveshareEPaper2in15B::initialize_display_() {
   this->set_ram_counter_();
   this->wait_until_idle_();
 
-  // Power-on clear refresh: write all-white to the full RAM and
-  // trigger one full refresh. This clears the OTP LUT's initial state
-  // from the first 5 gate lines (the noise/red bar at the top edge).
-  ESP_LOGI(TAG, "Power-on clear refresh...");
-  this->write_ram_bw_(0xFF);
-  this->write_ram_red_(0x00);
-  this->do_refresh_();
-
   this->initialized_ = true;
   ESP_LOGI(TAG, "======= SSD1680 INIT DONE =======");
 }

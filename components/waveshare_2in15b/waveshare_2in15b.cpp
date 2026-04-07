@@ -190,7 +190,15 @@ void WaveshareEPaper2in15B::update() {
   // TurnOnDisplay
   this->send_command_(0x20);
   this->wait_until_idle_();
-  ESP_LOGI(TAG, "Refresh complete.");
+
+  // Enter sleep mode — matches official EPD_2IN15B_Sleep()
+  // Keeps display safe between refreshes as per Waveshare recommendation.
+  // The next update() call will re-init via hardware_reset_().
+  this->send_command_(0x10);
+  this->send_data_(0x01);
+  this->initialized_ = false;
+
+  ESP_LOGI(TAG, "Refresh complete. Display sleeping.");
 }
 
 }  // namespace waveshare_2in15b

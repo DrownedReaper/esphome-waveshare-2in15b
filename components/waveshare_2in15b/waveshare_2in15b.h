@@ -10,7 +10,12 @@ namespace waveshare_2in15b {
 static const uint16_t EPD_WIDTH  = 160;
 static const uint16_t EPD_HEIGHT = 296;
 
-// SSD1680 command set (completely different from UC8151/UC8253)
+// First N source lines produce a hardware noise bar. Content is shifted past them.
+// EPD_USABLE_HEIGHT is what ESPHome reports as the drawable height (after rotation:90).
+static const uint8_t  EPD_PHYSICAL_OFFSET = 5;
+static const uint16_t EPD_USABLE_HEIGHT   = EPD_WIDTH - EPD_PHYSICAL_OFFSET;  // 155
+
+// SSD1680 commands
 static const uint8_t SSD1680_SW_RESET            = 0x12;
 static const uint8_t SSD1680_DRIVER_OUTPUT        = 0x01;
 static const uint8_t SSD1680_DATA_ENTRY_MODE      = 0x11;
@@ -25,7 +30,6 @@ static const uint8_t SSD1680_WRITE_RAM_BW         = 0x24;
 static const uint8_t SSD1680_WRITE_RAM_RED        = 0x26;
 static const uint8_t SSD1680_SET_RAM_X_COUNTER    = 0x4E;
 static const uint8_t SSD1680_SET_RAM_Y_COUNTER    = 0x4F;
-static const uint8_t SSD1680_NOP                  = 0xFF;
 
 class WaveshareEPaper2in15B
     : public display::DisplayBuffer,
@@ -53,17 +57,23 @@ class WaveshareEPaper2in15B
 
  protected:
   void draw_absolute_pixel_internal(int x, int y, Color color) override;
+
+  // Physical dimensions — used for RAM addressing and buffer sizing.
+  // get_height_internal returns EPD_USABLE_HEIGHT so ESPHome's rotation
+  // engine clips the lambda to the clean drawable area.
   int get_width_internal()  override { return EPD_WIDTH; }
-  int get_height_internal() override { return EPD_HEIGHT; }
+  int get_height_internal() override { return EPD_USABLE_HEIGHT; }
 
   void send_command_(uint8_t cmd);
   void send_data_(uint8_t data);
-  // SSD1680: BUSY HIGH = working, BUSY LOW = idle. Wait for LOW.
   void wait_until_idle_();
   void hardware_reset_();
   void initialize_display_();
   void set_ram_area_();
   void set_ram_counter_();
+  void do_refresh_();
+  void write_ram_bw_(uint8_t fill);
+  void write_ram_red_(uint8_t fill);
 
   GPIOPin *dc_pin_{nullptr};
   GPIOPin *reset_pin_{nullptr};
@@ -73,7 +83,7 @@ class WaveshareEPaper2in15B
 
   optional<std::function<void(WaveshareEPaper2in15B &)>> writer_{};
 
-  // 1 bit per pixel MSB first: 160 × 296 / 8 = 5920 bytes each
+  // Full physical buffer: 160 × 296 / 8 = 5920 bytes each
   static const uint32_t EPD_BUFFER_SIZE = (EPD_WIDTH * EPD_HEIGHT) / 8;
   uint8_t bw_buffer_[EPD_BUFFER_SIZE];
   uint8_t red_buffer_[EPD_BUFFER_SIZE];

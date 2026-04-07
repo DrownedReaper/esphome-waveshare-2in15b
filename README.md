@@ -146,9 +146,3 @@ Colors outside black/red/white snap to white.
 | All red screen | Missing RAM counter reset | Update to latest version |
 | Wrong colours | Verify color definitions match above | Ensure red is 100% red, 0% green, 0% blue |
 
----
-
-## Contributing to ESPHome
-
-Once stable, consider opening a PR on [ESPHome](https://github.com/esphome/esphome)
-to add this as a native `waveshare_epaper` model (`2.15in-b`).
